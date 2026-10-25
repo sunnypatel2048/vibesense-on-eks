@@ -3,3 +3,10 @@
 .vscode
 __pycache__
 celerybeat-schedule.db
+.pytest_cache/
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+.terraform.lock.hcl.bak
+kubeconfig*
