@@ -27,3 +27,7 @@ redis==5.0.8
 celery[redis]==5.3.6
 celery-redbeat==2.2.0
 email-validator==2.3.0
+boto3==1.43.121
+botocore==1.43.121
+moto==5.2.5
+pytest-mock==3.17.0
