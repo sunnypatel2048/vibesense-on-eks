@@ -1,0 +1,30 @@
+# Keep secrets, local state and anything the images don't need out of the
+# build context: smaller context, faster builds, no .env baked into a layer.
+.env
+.env.*
+.git
+.github
+.venv
+.vscode
+.pytest_cache
+**/__pycache__
+**/*.pyc
+.terraform
+*.tfstate*
+kubeconfig*
+
+tests
+local
+infra
+deploy
+docs
+scripts
+docker-compose.yml
+Makefile
+README.md
+LICENSE
+
+# Only the lock files are copied in.
+requirements/*.in
+requirements/dev.txt
+requirements.txt
