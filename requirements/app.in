@@ -1,0 +1,10 @@
+# The `app` image: UI, ingestion, aggregation and notification.
+-r base.in
+psycopg2-binary==2.9.9
+alembic==1.13.3             # migrations + the startup schema check
+streamlit==1.50.0
+google-api-python-client==2.184.0
+spacy==3.8.7
+en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0.tar.gz
+jinja2==3.1.2               # email template
+email-validator==2.3.0      # EmailStr in the UI form
