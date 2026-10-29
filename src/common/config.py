@@ -54,6 +54,23 @@ class SmtpSettings(_BaseSettings):
         return self.smtp_user
 
 
+class QueueSettings(_BaseSettings):
+    """SQS queues, addressed by name; the URL is looked up once at startup.
+
+    Names are the same locally (ElasticMQ) and in AWS, so only the endpoint
+    differs between environments.
+    """
+
+    aws_region: str = "us-east-1"                        # AWS_REGION
+    ingest_queue: str = "vibesense-ingest"               # INGEST_QUEUE
+    analysis_queue: str = "vibesense-analysis"           # ANALYSIS_QUEUE
+    aggregation_queue: str = "vibesense-aggregation"     # AGGREGATION_QUEUE
+    notification_queue: str = "vibesense-notification"   # NOTIFICATION_QUEUE
+    # Local development only: point at ElasticMQ, e.g. http://localhost:9324.
+    # Leave unset in AWS so boto3 uses real SQS.
+    sqs_endpoint_url: str | None = None                  # SQS_ENDPOINT_URL
+
+
 # Legacy: removed when RabbitMQ is replaced by SQS (Tasks 1.2-1.3).
 class LegacyRabbitMQSettings(_BaseSettings):
     rabbitmq_url: SecretStr  # RABBITMQ_URL; may contain credentials

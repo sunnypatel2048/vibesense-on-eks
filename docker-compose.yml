@@ -19,6 +19,13 @@ services:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
 
+  elasticmq:  # Local SQS (replaces RabbitMQ in Task 1.3)
+    image: softwaremill/elasticmq-native:latest
+    ports:
+      - "9324:9324"  # SQS API
+    volumes:
+      - ./local/elasticmq.conf:/opt/elasticmq.conf:ro
+
   redis:  # For Celery backend
     image: redis:7
     ports:
