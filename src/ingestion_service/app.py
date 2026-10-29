@@ -16,7 +16,8 @@ from sqlalchemy.orm import Session
 
 from src.common.config import IngestionSettings, get_settings
 from src.common.db import create_session_factory
-from src.common.queue import consume, publish
+from src.common.queue import publish
+from src.common.worker import run_worker
 from src.common.scheduler import as_utc, job_end
 from src.ingestion_service.preprocessor import preprocess_text
 from src.ingestion_service.youtube_fetcher import fetch_comments, parse_published_at
@@ -92,7 +93,13 @@ def main() -> None:
         next_queue=settings.analysis_queue,
     )
     # One job at a time: a busy video can take many API pages to fetch.
-    consume(settings.ingest_queue, handler, batch_size=1)
+    run_worker(
+        settings.ingest_queue,
+        handler,
+        port=settings.metrics_port,
+        max_busy_seconds=300,  # a busy video can take many API pages
+        batch_size=1,
+    )
 
 
 if __name__ == "__main__":

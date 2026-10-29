@@ -17,7 +17,8 @@ from sqlalchemy.orm import Session
 
 from src.common.config import AggregationSettings, get_settings
 from src.common.db import create_session_factory
-from src.common.queue import consume, publish
+from src.common.queue import publish
+from src.common.worker import run_worker
 from src.models import Aggregate, AnalysisOutput, IntervalResultDB, interval_time
 
 logger = structlog.get_logger()
@@ -122,7 +123,7 @@ def main() -> None:
         publish_to=publish,
         next_queue=settings.notification_queue,
     )
-    consume(settings.aggregation_queue, handler)
+    run_worker(settings.aggregation_queue, handler, port=settings.metrics_port, max_busy_seconds=60)
 
 
 if __name__ == "__main__":

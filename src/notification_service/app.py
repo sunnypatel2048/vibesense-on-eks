@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 
 from src.common.config import NotificationSettings, SmtpSettings, get_settings
 from src.common.db import create_session_factory
-from src.common.queue import consume
+from src.common.worker import run_worker
 from src.models import Aggregate, IntervalResultDB, MonitoringJobDB, interval_time
 
 logger = structlog.get_logger()
@@ -186,7 +186,7 @@ def main() -> None:
         send=smtp_sender(settings),
         from_email=settings.from_email,
     )
-    consume(settings.notification_queue, handler)
+    run_worker(settings.notification_queue, handler, port=settings.metrics_port, max_busy_seconds=60)
 
 
 if __name__ == "__main__":

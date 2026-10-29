@@ -26,6 +26,7 @@ import structlog
 from botocore.config import Config
 
 from src.common.config import QueueSettings, get_settings
+from src.common.metrics import LAST_SUCCESS, MESSAGES, PROCESSING_SECONDS, PUBLISHED
 
 logger = structlog.get_logger()
 
@@ -86,6 +87,7 @@ def publish(queue_name: str, payload: dict[str, Any]) -> str:
             f"{queue_name}: payload is {size} bytes; the SQS limit is {MAX_MESSAGE_BYTES}"
         )
     response = _client().send_message(QueueUrl=queue_url(queue_name), MessageBody=body)
+    PUBLISHED.labels(queue=queue_name).inc()
     logger.debug("message_published", queue=queue_name, message_id=response["MessageId"], bytes=size)
     return response["MessageId"]
 
@@ -97,8 +99,11 @@ class Consumer:
 
     `batch_size`: messages per receive (1-10). Use 1 for slow handlers so a
     single pod doesn't hold messages other pods could be working on.
-    `last_poll`: monotonic time of the last successful poll; the health check
-    (Task 1.8) treats a stale value as a stuck consumer.
+    Health state, read by the worker's /healthz and /readyz (src/common/worker.py):
+    `last_poll`: monotonic time of the last successful poll.
+    `last_activity`: last poll or finished message, whichever is later.
+    `busy_since`: when the current message started, or None between messages.
+    `has_polled`: True once the first poll succeeded (the worker is ready).
     """
 
     def __init__(
@@ -120,6 +125,9 @@ class Consumer:
         self.wait_seconds = wait_seconds
         self.retry_delays_seconds = tuple(retry_delays_seconds)
         self.last_poll = time.monotonic()
+        self.last_activity = self.last_poll
+        self.busy_since: float | None = None
+        self.has_polled = False
         self._stopping = threading.Event()
         self._log = logger.bind(queue=queue_name)
 
@@ -164,7 +172,8 @@ class Consumer:
             self._stopping.wait(2)
             return 0
 
-        self.last_poll = time.monotonic()
+        self.last_poll = self.last_activity = time.monotonic()
+        self.has_polled = True
         messages = response.get("Messages", [])
         succeeded = 0
         for index, message in enumerate(messages):
@@ -175,6 +184,20 @@ class Consumer:
         return succeeded
 
     def _process(self, url: str, message: dict[str, Any]) -> bool:
+        self.busy_since = time.monotonic()
+        started = time.perf_counter()
+        try:
+            ok = self._handle(url, message)
+        finally:
+            self.busy_since = None
+            self.last_activity = time.monotonic()
+            PROCESSING_SECONDS.labels(queue=self.queue_name).observe(time.perf_counter() - started)
+        MESSAGES.labels(queue=self.queue_name, result="success" if ok else "failure").inc()
+        if ok:
+            LAST_SUCCESS.labels(queue=self.queue_name).set_to_current_time()
+        return ok
+
+    def _handle(self, url: str, message: dict[str, Any]) -> bool:
         receive_count = int(message.get("Attributes", {}).get("ApproximateReceiveCount", "1"))
         log = self._log.bind(message_id=message["MessageId"], receive_count=receive_count)
         try:
