@@ -1,29 +1,31 @@
-from datetime import datetime, timezone
-from fastapi import FastAPI
-import pika
-import json
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
-import structlog
+"""Notification worker: emails the user each interval's sentiment report.
+
+Reads: notification queue  {job_id, interval_timestamp, aggregate: Aggregate}
+
+Run with: python -m src.notification_service.app
+"""
 import smtplib
-from email.mime.text import MIMEText
+from datetime import datetime
 from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from functools import partial
+from typing import Any, Callable
+from uuid import UUID
+
+import structlog
 from jinja2 import Template
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session, sessionmaker
+
+from src.common.config import NotificationSettings, SmtpSettings, get_settings
+from src.common.queue import consume
 from src.models import Aggregate, Base, MonitoringJobDB
-from src.common.config import NotificationSettings, get_settings
 
-settings = get_settings(NotificationSettings)
-
-app = FastAPI(title="Notification Service")
 logger = structlog.get_logger()
 
-# DB Setup
-engine = create_engine(settings.db_url.get_secret_value())
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base.metadata.create_all(bind=engine)
+SessionFactory = Callable[[], Session]
+EmailSender = Callable[[MIMEMultipart], None]
 
-# Email Template (Jinja2) - using HTML
 email_template = Template("""
 <!DOCTYPE html>
 <html>
@@ -66,102 +68,109 @@ email_template = Template("""
 </html>
 """)
 
-# API Endpoint for Manual Testing
-@app.post("/notify/{job_id}")
-async def notify_manual(job_id: str, aggregate: Aggregate):
-    """Manual email trigger for testing."""
-    # Note: full_name variable is not passed to send_email in the original implementation
-    send_email("Test User", "Test Post Title", aggregate, 1.0, datetime.now(timezone.utc).isoformat(), "test@domain.com")
-    return {"status": "Email sent"}
 
-# Queue Consumer (Run in Worker Process)
-def run_consumer():
-    @retry(stop=stop_after_attempt(5), wait=wait_exponential(multiplier=1, min=4, max=60),
-           retry=retry_if_exception_type(pika.exceptions.AMQPError))
-    def consume():
-        connection = pika.BlockingConnection(pika.URLParameters(settings.rabbitmq_url.get_secret_value()))
-        channel = connection.channel()
-        channel.queue_declare(queue="notification_queue", durable=True)
+def sentiment_label(score: float) -> str:
+    """Map the 0..2 sentiment scale to a word."""
+    if score < 0.67:
+        return "Negative"
+    if score < 1.33:
+        return "Neutral"
+    return "Positive"
 
-        def callback(ch, method, properties, body):
-            db = SessionLocal()
-            try:
-                data = json.loads(body)
-                aggregate = Aggregate(**data['aggregate'])
-                metadata = {k: v for k, v in data.items() if k != 'aggregate'}
 
-                job = db.query(MonitoringJobDB).filter(MonitoringJobDB.job_id == metadata['job_id']).first()
-                if not job:
-                    raise ValueError("Job not found in DB")
+def confidence_label(confidence: float) -> str:
+    if confidence < 0.4:
+        return "Uncertain"
+    if confidence < 0.66:
+        return "Moderate"
+    return "High"
 
-                user_full_name = job.user_full_name
-                email = job.email
-                post_title = job.post_title
-                interval_duration = job.intervals_seconds / 3600
-                interval_timestamp = metadata.get('interval_timestamp')
 
-                send_email(user_full_name, post_title, aggregate, interval_duration, interval_timestamp, email)
-                ch.basic_ack(delivery_tag=method.delivery_tag)
-                logger.info("Email sent", job_id=metadata.get('job_id'))
-            except Exception as e:
-                logger.error("Notification failed", error=str(e))
-                ch.basic_nack(delivery_tag=method.delivery_tag, requeue=True)
-            finally:
-                db.close()
-
-        channel.basic_consume(queue="notification_queue", on_message_callback=callback)
-        logger.info("Notification Consumer started")
-        channel.start_consuming()
-
-    consume()
-
-def send_email(user_full_name: str, post_title: str, aggregate: Aggregate, interval_duration: float, interval_timestamp: str, to_email: str):
-    """Send formatted email using HTML."""
-
-    def get_confidence_class(confidence):
-        if confidence < 0.4:
-            return "Uncertain"
-        elif confidence < 0.66:
-            return "Moderate"
-        else:
-            return "High"
-    
-    def get_sentiment_class(score):
-        if score < 0.67:
-            return "Negative"
-        elif score < 1.33:
-            return "Neutral"
-        else:
-            return "Positive"
-
-    # Render HTML content
-    msg_content_html = email_template.render(
+def build_email(
+    *,
+    from_email: str,
+    to_email: str,
+    user_full_name: str,
+    post_title: str,
+    aggregate: Aggregate,
+    interval_hours: float,
+    interval_timestamp: str,
+) -> MIMEMultipart:
+    html = email_template.render(
         user_full_name=user_full_name,
         post_title=post_title,
-        interval_duration=interval_duration,
-        interval_timestamp=datetime.fromisoformat(interval_timestamp).strftime("%B %d, %Y at %I:%M %p %Z"),
-        interval_sentiment=get_sentiment_class(aggregate.interval_sentiment),
-        interval_confidence=get_confidence_class(aggregate.interval_confidence),
-        overall_sentiment=get_sentiment_class(aggregate.overall_sentiment),
-        overall_confidence=get_confidence_class(aggregate.overall_confidence),
+        interval_duration=interval_hours,
+        interval_timestamp=datetime.fromisoformat(interval_timestamp).strftime(
+            "%B %d, %Y at %I:%M %p %Z"
+        ),
+        interval_sentiment=sentiment_label(aggregate.interval_sentiment),
+        interval_confidence=confidence_label(aggregate.interval_confidence),
+        overall_sentiment=sentiment_label(aggregate.overall_sentiment),
+        overall_confidence=confidence_label(aggregate.overall_confidence),
     )
-    
-    # Create the root message and set the headers
-    msg = MIMEMultipart('alternative')
-    msg['From'] = settings.from_email
-    msg['To'] = to_email
-    msg['Subject'] = f"🚀 VibeSense Alert: Fresh Insights for Your Video - {post_title}"
+    msg = MIMEMultipart("alternative")
+    msg["From"] = from_email
+    msg["To"] = to_email
+    msg["Subject"] = f"🚀 VibeSense Alert: Fresh Insights for Your Video - {post_title}"
+    msg.attach(MIMEText(html, "html"))
+    return msg
 
-    # Attach HTML version
-    msg_html_part = MIMEText(msg_content_html, 'html')
-    msg.attach(msg_html_part)
 
-    # Send the email
-    with smtplib.SMTP(settings.smtp_server, settings.smtp_port) as server:
-        server.starttls()
-        server.login(settings.smtp_user, settings.smtp_pass.get_secret_value())
-        server.send_message(msg)
+def smtp_sender(settings: SmtpSettings) -> EmailSender:
+    """Return a function that sends one message over SMTP with STARTTLS."""
+
+    def send(msg: MIMEMultipart) -> None:
+        with smtplib.SMTP(settings.smtp_server, settings.smtp_port, timeout=30) as server:
+            server.starttls()
+            server.login(settings.smtp_user, settings.smtp_pass.get_secret_value())
+            server.send_message(msg)
+
+    return send
+
+
+def handle_notification(
+    payload: dict[str, Any],
+    *,
+    session_factory: SessionFactory,
+    send: EmailSender,
+    from_email: str,
+) -> None:
+    aggregate = Aggregate(**payload["aggregate"])
+    job_id = payload["job_id"]
+    log = logger.bind(job_id=job_id)
+
+    with session_factory() as db:
+        job = db.get(MonitoringJobDB, UUID(job_id))
+        if job is None:
+            # Retries can't fix this; after 5 attempts SQS moves it to the DLQ.
+            raise ValueError(f"job {job_id} not found")
+        msg = build_email(
+            from_email=from_email,
+            to_email=job.email,
+            user_full_name=job.user_full_name,
+            post_title=job.post_title,
+            aggregate=aggregate,
+            interval_hours=job.intervals_seconds / 3600,
+            interval_timestamp=payload["interval_timestamp"],
+        )
+
+    send(msg)
+    log.info("email_sent")
+
+
+def main() -> None:
+    settings = get_settings(NotificationSettings)
+    engine = create_engine(settings.db_url.get_secret_value(), pool_pre_ping=True)
+    Base.metadata.create_all(bind=engine)  # removed in Task 1.7 (Alembic only)
+
+    handler = partial(
+        handle_notification,
+        session_factory=sessionmaker(bind=engine),
+        send=smtp_sender(settings),
+        from_email=settings.from_email,
+    )
+    consume(settings.notification_queue, handler)
+
 
 if __name__ == "__main__":
-    # For running the consumer worker: python src/notification_service/app.py
-    run_consumer()
+    main()

@@ -71,7 +71,7 @@ class QueueSettings(_BaseSettings):
     sqs_endpoint_url: str | None = None                  # SQS_ENDPOINT_URL
 
 
-# Legacy: removed when RabbitMQ is replaced by SQS (Tasks 1.2-1.3).
+# Legacy: only Celery's broker uses this now; removed with Celery in Task 1.4.
 class LegacyRabbitMQSettings(_BaseSettings):
     rabbitmq_url: SecretStr  # RABBITMQ_URL; may contain credentials
 
@@ -83,25 +83,29 @@ class LegacyRedisSettings(_BaseSettings):
 
 # --- One class per service -------------------------------------------------
 
-class UiSettings(DatabaseSettings, YouTubeSettings, LegacyRabbitMQSettings):
+class UiSettings(DatabaseSettings, YouTubeSettings):
     pass
 
 
 class IngestionSettings(
-    DatabaseSettings, YouTubeSettings, LegacyRabbitMQSettings, LegacyRedisSettings
+    DatabaseSettings,
+    YouTubeSettings,
+    QueueSettings,
+    LegacyRabbitMQSettings,
+    LegacyRedisSettings,
 ):
     pass
 
 
-class AiSettings(LegacyRabbitMQSettings):
+class AiSettings(QueueSettings):
     pass
 
 
-class AggregationSettings(DatabaseSettings, LegacyRabbitMQSettings):
+class AggregationSettings(DatabaseSettings, QueueSettings):
     pass
 
 
-class NotificationSettings(DatabaseSettings, SmtpSettings, LegacyRabbitMQSettings):
+class NotificationSettings(DatabaseSettings, SmtpSettings, QueueSettings):
     pass
 
 

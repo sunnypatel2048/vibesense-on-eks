@@ -1,6 +1,4 @@
 import streamlit as st
-import pika
-import json
 from uuid import uuid4
 from datetime import timedelta
 import re
@@ -74,13 +72,6 @@ if submit_button:
                 user_full_name=full_name,
                 email=email
             )
-
-            # Queue Job
-            connection = pika.BlockingConnection(pika.URLParameters(settings.rabbitmq_url.get_secret_value()))
-            channel = connection.channel()
-            channel.queue_declare(queue="monitoring_jobs", durable=True)
-            channel.basic_publish(exchange='', routing_key="monitoring_jobs", body=json.dumps(job.model_dump()))
-            connection.close()
 
             db = SessionLocal()
             try:

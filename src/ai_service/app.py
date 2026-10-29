@@ -1,77 +1,76 @@
-from fastapi import FastAPI
-import pika
-import json
-from transformers import pipeline
-from typing import List
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+"""AI worker: scores the sentiment of each comment and passes the results on.
+
+Reads:  analysis queue     {job_id, interval_timestamp, comments: [str, ...]}
+Writes: aggregation queue  {job_id, interval_timestamp, results: [AnalysisOutput, ...]}
+
+Run with: python -m src.ai_service.app
+"""
+from functools import lru_cache, partial
+from typing import Any, Callable, Sequence
+
 import structlog
-from src.models import AnalysisOutput
+
 from src.common.config import AiSettings, get_settings
+from src.common.queue import consume, publish
+from src.models import AnalysisOutput
 
-settings = get_settings(AiSettings)
-
-app = FastAPI(title="AI Service")
 logger = structlog.get_logger()
 
-# Load Models
-sentiment_pipe = pipeline(
-    "sentiment-analysis",
-    model="tabularisai/multilingual-sentiment-analysis"
-)
+MODEL_NAME = "tabularisai/multilingual-sentiment-analysis"
 
-# API Endpoint for Sync Testing
-@app.post("/analyze/", response_model=List[AnalysisOutput])
-async def analyze_text(texts: List[str]):
-    """Process text comments for sentiment."""
-    return process_comments(texts)
+# A scorer takes texts and returns one {"label": str, "score": float} per text.
+Scorer = Callable[[list[str]], list[dict[str, Any]]]
+Publisher = Callable[[str, dict[str, Any]], Any]
 
-# Queue Consumer (Run in Worker Process)
-def run_consumer():
-    @retry(stop=stop_after_attempt(5), wait=wait_exponential(multiplier=1, min=4, max=60),
-           retry=retry_if_exception_type(pika.exceptions.AMQPError))
-    def consume():
-        connection = pika.BlockingConnection(pika.URLParameters(settings.rabbitmq_url.get_secret_value()))
-        channel = connection.channel()
-        channel.queue_declare(queue="analysis_queue", durable=True)
-        channel.queue_declare(queue="aggregation_queue", durable=True)
 
-        def callback(ch, method, properties, body):
-            try:
-                data = json.loads(body)
-                comments = data['comments']  # List of texts
-                metadata = {k: v for k, v in data.items() if k != 'comments'}
-                results = process_comments(comments)
-                payload = {**metadata, 'results': [r.model_dump() for r in results]}
-                ch.basic_publish(exchange='', routing_key="aggregation_queue", body=json.dumps(payload))
-                ch.basic_ack(delivery_tag=method.delivery_tag)
-                logger.info("Comments processed and published", metadata=metadata)
-            except Exception as e:
-                logger.error("Processing failed", error=str(e))
-                ch.basic_nack(delivery_tag=method.delivery_tag, requeue=True)
+@lru_cache
+def _sentiment_pipeline():
+    """Load the model once, on first use (never at import time)."""
+    from transformers import pipeline  # heavy import; only the worker needs it
 
-        channel.basic_consume(queue="analysis_queue", on_message_callback=callback)
-        logger.info("AI Consumer started")
-        channel.start_consuming()
+    return pipeline("sentiment-analysis", model=MODEL_NAME)
 
-    consume()
 
-def process_comments(texts: List[str]) -> List[AnalysisOutput]:
-    """Process comments with AI model."""
-    try:
-        sent_results = sentiment_pipe(texts, batch_size=64, truncation=True)
-        outputs = []
-        for sent in sent_results:
-            output = AnalysisOutput(
-                text="",
-                sentiment=sent['label'],
-                confidence=sent['score'],
-            )
-            outputs.append(output)
-        return outputs
-    except Exception as e:
-        logger.error("AI processing failed", error=str(e))
-        raise
+def model_scorer(texts: list[str]) -> list[dict[str, Any]]:
+    return _sentiment_pipeline()(texts, batch_size=64, truncation=True)
+
+
+def score_comments(texts: Sequence[str], scorer: Scorer = model_scorer) -> list[AnalysisOutput]:
+    if not texts:
+        return []
+    return [
+        AnalysisOutput(text="", sentiment=result["label"], confidence=result["score"])
+        for result in scorer(list(texts))
+    ]
+
+
+def handle_analysis(
+    payload: dict[str, Any],
+    *,
+    publish_to: Publisher,
+    next_queue: str,
+    scorer: Scorer = model_scorer,
+) -> None:
+    metadata = {k: v for k, v in payload.items() if k != "comments"}
+    log = logger.bind(job_id=metadata.get("job_id"))
+
+    results = score_comments(payload["comments"], scorer)
+    if not results:
+        log.warning("no_comments_to_score")
+        return
+
+    publish_to(next_queue, {**metadata, "results": [r.model_dump() for r in results]})
+    log.info("comments_scored", count=len(results))
+
+
+def main() -> None:
+    settings = get_settings(AiSettings)
+    _sentiment_pipeline()  # load the model before taking any messages
+    handler = partial(handle_analysis, publish_to=publish, next_queue=settings.aggregation_queue)
+    # One message at a time: inference is slow, and holding a batch would
+    # starve other AI pods once KEDA scales them out.
+    consume(settings.analysis_queue, handler, batch_size=1)
+
 
 if __name__ == "__main__":
-    # For running the consumer worker: python3 src/ai_service/app.py
-    run_consumer()
+    main()

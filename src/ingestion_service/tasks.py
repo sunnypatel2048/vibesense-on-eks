@@ -3,14 +3,13 @@ from src.models import MonitoringJobDB, CommentData
 from src.ingestion_service.youtube_fetcher import fetch_comments
 from src.ingestion_service.preprocessor import preprocess_text
 from redbeat import RedBeatSchedulerEntry
-import pika
-import json
 from tenacity import retry, stop_after_attempt, wait_exponential
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
 import structlog
 from datetime import datetime, timedelta, timezone
 from src.common.config import IngestionSettings, get_settings
+from src.common.queue import publish
 
 settings = get_settings(IngestionSettings)
 
@@ -69,17 +68,8 @@ def process_job(job_data: dict):
                 'interval_timestamp': interval_timestamp
             }
 
-            # Publish batches to RabbitMQ
-            connection = pika.BlockingConnection(pika.URLParameters(settings.rabbitmq_url.get_secret_value()))
-            channel = connection.channel()
-            channel.queue_declare(queue='analysis_queue', durable=True)
-            payload = { **metadata, 'comments': preprocessed }
-            channel.basic_publish(
-                exchange='',
-                routing_key='analysis_queue',
-                body=json.dumps(payload)
-            )
-            connection.close()
+            # Hand the batch to the AI worker
+            publish(settings.analysis_queue, {**metadata, 'comments': preprocessed})
 
             new_last_fetched_at = max(datetime.fromisoformat(c['published_at'][:-1] + '+00:00') for c in new_comments) if new_comments else datetime.now(timezone.utc)
             job.last_fetched_at = new_last_fetched_at
