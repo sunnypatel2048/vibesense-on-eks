@@ -1,17 +1,13 @@
 from fastapi import FastAPI
-from dotenv import load_dotenv
-import os
 from celery import Celery
 import structlog
 from datetime import datetime
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from src.ingestion_service.scheduler import configure_celery_beat
+from src.common.config import IngestionSettings, get_settings
 
-load_dotenv()
-DB_URL = os.getenv("DB_URL")
-RABBITMQ_URL = os.getenv("RABBITMQ_URL")
-REDIS_URL = os.getenv("REDIS_URL")
+settings = get_settings(IngestionSettings)
 
 
 app = FastAPI(title="Data Ingestion Service")
@@ -20,8 +16,8 @@ logger = structlog.get_logger()
 # Celery setup
 celery_app = Celery(
     'ingestion',
-    broker=RABBITMQ_URL,
-    backend=REDIS_URL,
+    broker=settings.rabbitmq_url.get_secret_value(),
+    backend=settings.redis_url.get_secret_value(),
     include=['src.ingestion_service.tasks']
 )
 
@@ -33,10 +29,10 @@ celery_app.conf.update(
     enable_utc=True,
 )
 
-configure_celery_beat(celery_app)
+configure_celery_beat(celery_app, redis_url=settings.redis_url.get_secret_value())
 
 # Database setup
-engine = create_engine(DB_URL)
+engine = create_engine(settings.db_url.get_secret_value())
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # API Endpoints

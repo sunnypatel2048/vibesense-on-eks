@@ -1,6 +1,4 @@
 import streamlit as st
-from dotenv import load_dotenv
-import os
 import pika
 import json
 from uuid import uuid4
@@ -13,13 +11,11 @@ from sqlalchemy.orm import sessionmaker
 from datetime import datetime, timezone
 from pydantic import ValidationError
 from src.utils import parse_youtube_video_id
+from src.common.config import UiSettings, get_settings
 
-load_dotenv()
-YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
-RABBITMQ_URL = os.getenv("RABBITMQ_URL")
-DB_URL = os.getenv("DB_URL")
+settings = get_settings(UiSettings)
 
-engine = create_engine(DB_URL)
+engine = create_engine(settings.db_url.get_secret_value())
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 st.set_page_config(page_title="VibeSense", layout="centered", initial_sidebar_state="collapsed")
@@ -52,7 +48,7 @@ if submit_button:
             post_id = parse_youtube_video_id(input_data.post_url)
 
             # Fetch Video Title for Confirmation
-            api_url = f"https://www.googleapis.com/youtube/v3/videos?part=snippet&id={post_id}&key={YOUTUBE_API_KEY}"
+            api_url = f"https://www.googleapis.com/youtube/v3/videos?part=snippet&id={post_id}&key={settings.youtube_api_key.get_secret_value()}"
             response = requests.get(api_url).json()
             if 'items' not in response or not response['items']:
                 raise ValueError("Invalid video ID or private video")
@@ -80,7 +76,7 @@ if submit_button:
             )
 
             # Queue Job
-            connection = pika.BlockingConnection(pika.URLParameters(RABBITMQ_URL))
+            connection = pika.BlockingConnection(pika.URLParameters(settings.rabbitmq_url.get_secret_value()))
             channel = connection.channel()
             channel.queue_declare(queue="monitoring_jobs", durable=True)
             channel.basic_publish(exchange='', routing_key="monitoring_jobs", body=json.dumps(job.model_dump()))

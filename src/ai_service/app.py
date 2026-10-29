@@ -1,6 +1,4 @@
 from fastapi import FastAPI
-from dotenv import load_dotenv
-import os
 import pika
 import json
 from transformers import pipeline
@@ -8,9 +6,9 @@ from typing import List
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 import structlog
 from src.models import AnalysisOutput
+from src.common.config import AiSettings, get_settings
 
-load_dotenv()
-RABBITMQ_URL = os.getenv("RABBITMQ_URL")
+settings = get_settings(AiSettings)
 
 app = FastAPI(title="AI Service")
 logger = structlog.get_logger()
@@ -32,7 +30,7 @@ def run_consumer():
     @retry(stop=stop_after_attempt(5), wait=wait_exponential(multiplier=1, min=4, max=60),
            retry=retry_if_exception_type(pika.exceptions.AMQPError))
     def consume():
-        connection = pika.BlockingConnection(pika.URLParameters(RABBITMQ_URL))
+        connection = pika.BlockingConnection(pika.URLParameters(settings.rabbitmq_url.get_secret_value()))
         channel = connection.channel()
         channel.queue_declare(queue="analysis_queue", durable=True)
         channel.queue_declare(queue="aggregation_queue", durable=True)

@@ -1,6 +1,4 @@
 from fastapi import FastAPI
-from dotenv import load_dotenv
-import os
 import pika
 import json
 from typing import List
@@ -13,16 +11,15 @@ from sqlalchemy.orm import sessionmaker
 from datetime import datetime
 from src.models import Aggregate, IntervalResultDB, AnalysisOutput
 from src.models import Base
+from src.common.config import AggregationSettings, get_settings
 
-load_dotenv()
-DB_URL = os.getenv("DB_URL")
-RABBITMQ_URL = os.getenv("RABBITMQ_URL")
+settings = get_settings(AggregationSettings)
 
 app = FastAPI(title="Analytics Aggregation Service")
 logger = structlog.get_logger()
 
 # DB Setup
-engine = create_engine(DB_URL)
+engine = create_engine(settings.db_url.get_secret_value())
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base.metadata.create_all(bind=engine)
 
@@ -52,7 +49,7 @@ def run_consumer():
     @retry(stop=stop_after_attempt(5), wait=wait_exponential(multiplier=1, min=4, max=60),
            retry=retry_if_exception_type(pika.exceptions.AMQPError))
     def consume():
-        connection = pika.BlockingConnection(pika.URLParameters(RABBITMQ_URL))
+        connection = pika.BlockingConnection(pika.URLParameters(settings.rabbitmq_url.get_secret_value()))
         channel = connection.channel()
         channel.queue_declare(queue="aggregation_queue", durable=True)
         channel.queue_declare(queue="notification_queue", durable=True)

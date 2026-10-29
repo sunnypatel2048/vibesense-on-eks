@@ -1,12 +1,14 @@
 from googleapiclient.discovery import build
-from dotenv import load_dotenv
-import os
+from functools import lru_cache
 from typing import List, Dict
 from datetime import datetime
+from src.common.config import YouTubeSettings, get_settings
 
-load_dotenv()
-YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
-youtube = build("youtube", "v3", developerKey=YOUTUBE_API_KEY)
+@lru_cache
+def _youtube_client():
+    """Build the API client on first use, not at import time."""
+    api_key = get_settings(YouTubeSettings).youtube_api_key.get_secret_value()
+    return build("youtube", "v3", developerKey=api_key)
 
 def fetch_comments(video_id: str) -> List[Dict]:
     """
@@ -17,7 +19,7 @@ def fetch_comments(video_id: str) -> List[Dict]:
     next_page_token = None
 
     while True:
-        response = youtube.commentThreads().list(
+        response = _youtube_client().commentThreads().list(
             part="snippet",
             videoId=video_id,
             order="time",

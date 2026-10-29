@@ -1,6 +1,5 @@
-import os
-from dotenv import load_dotenv
 from src.models import Base
+from src.common.config import MigrationSettings, get_settings
 
 from logging.config import fileConfig
 
@@ -8,8 +7,6 @@ from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 
 from alembic import context
-
-load_dotenv()
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -44,7 +41,7 @@ def run_migrations_offline() -> None:
     script output.
 
     """
-    url = config.get_main_option("sqlalchemy.url")
+    url = get_settings(MigrationSettings).db_url.get_secret_value()
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -64,10 +61,8 @@ def run_migrations_online() -> None:
 
     """
 
-    # Fetch the database URL from the environment variable
-    db_url = os.environ.get("DB_URL")
-    if not db_url:
-        raise ValueError("DB_URL not set in environment")
+    # Same settings class as the app, so both always agree on the database.
+    db_url = get_settings(MigrationSettings).db_url.get_secret_value()
 
     # Set the sqlalchemy.url on the config object
     config.set_main_option("sqlalchemy.url", db_url)
