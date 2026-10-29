@@ -20,6 +20,7 @@ from src.common.config import LocalSchedulerSettings, get_settings
 from src.common.db import create_session_factory
 from src.common.queue import publish
 from src.common.scheduler import as_utc, ingest_message, job_end
+from src.common.logs import configure_logging
 from src.models import MonitoringJobDB
 
 logger = structlog.get_logger()
@@ -75,6 +76,7 @@ class DueJobTracker:
 
 
 def main() -> None:
+    configure_logging("local-scheduler")
     settings = get_settings(LocalSchedulerSettings)
     tracker = DueJobTracker(create_session_factory(settings), publish, settings.ingest_queue)
 

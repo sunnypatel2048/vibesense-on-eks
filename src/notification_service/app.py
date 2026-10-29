@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 from src.common.config import NotificationSettings, SmtpSettings, get_settings
 from src.common.db import create_session_factory
 from src.common.worker import run_worker
+from src.common.logs import configure_logging
 from src.models import Aggregate, IntervalResultDB, MonitoringJobDB, interval_time
 
 logger = structlog.get_logger()
@@ -178,6 +179,7 @@ def handle_notification(
 
 
 def main() -> None:
+    configure_logging("notification")
     settings = get_settings(NotificationSettings)
 
     handler = partial(

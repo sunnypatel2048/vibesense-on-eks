@@ -1,5 +1,4 @@
 from urllib.parse import urlparse, parse_qs
-from pydantic import ValidationError
 
 def parse_youtube_video_id(url: str) -> str:
     """

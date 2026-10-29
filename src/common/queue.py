@@ -186,9 +186,13 @@ class Consumer:
     def _process(self, url: str, message: dict[str, Any]) -> bool:
         self.busy_since = time.monotonic()
         started = time.perf_counter()
+        # Every log line written while handling this message, from any module,
+        # carries message_id (and job_id once the body is parsed).
+        structlog.contextvars.bind_contextvars(message_id=message["MessageId"])
         try:
             ok = self._handle(url, message)
         finally:
+            structlog.contextvars.unbind_contextvars("message_id", "job_id")
             self.busy_since = None
             self.last_activity = time.monotonic()
             PROCESSING_SECONDS.labels(queue=self.queue_name).observe(time.perf_counter() - started)
@@ -202,6 +206,8 @@ class Consumer:
         log = self._log.bind(message_id=message["MessageId"], receive_count=receive_count)
         try:
             payload = json.loads(message["Body"])
+            if isinstance(payload, dict) and payload.get("job_id"):
+                structlog.contextvars.bind_contextvars(job_id=str(payload["job_id"]))
             self.handler(payload)
         except Exception:
             log.exception("message_failed")

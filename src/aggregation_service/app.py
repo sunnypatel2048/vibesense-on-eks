@@ -19,6 +19,7 @@ from src.common.config import AggregationSettings, get_settings
 from src.common.db import create_session_factory
 from src.common.queue import publish
 from src.common.worker import run_worker
+from src.common.logs import configure_logging
 from src.models import Aggregate, AnalysisOutput, IntervalResultDB, interval_time
 
 logger = structlog.get_logger()
@@ -114,6 +115,7 @@ def handle_aggregation(
 
 
 def main() -> None:
+    configure_logging("aggregation")
     settings = get_settings(AggregationSettings)
     session_factory = create_session_factory(settings)
 

@@ -19,6 +19,7 @@ from src.common.db import create_session_factory
 from src.common.queue import publish
 from src.common.worker import run_worker
 from src.common.scheduler import as_utc, job_end
+from src.common.logs import configure_logging
 from src.ingestion_service.preprocessor import preprocess_text
 from src.ingestion_service.youtube_fetcher import fetch_comments, parse_published_at
 from src.models import MonitoringJobDB
@@ -83,6 +84,7 @@ def handle_ingest(
 
 
 def main() -> None:
+    configure_logging("ingestion")
     settings = get_settings(IngestionSettings)
     handler = partial(
         handle_ingest,
