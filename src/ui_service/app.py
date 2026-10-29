@@ -7,6 +7,7 @@ import structlog
 
 from src.common.config import UiSettings, get_settings
 from src.common.db import create_session_factory
+from src.common.logs import configure_logging
 from src.common.queue import publish
 from src.common.scheduler import get_scheduler
 from src.ingestion_service.youtube_fetcher import get_video_title
@@ -15,6 +16,7 @@ from src.ui_service.jobs import FormError, available_plans, create_job, humanize
 logger = structlog.get_logger()
 
 st.set_page_config(page_title="VibeSense", page_icon="📈", layout="centered")
+configure_logging("ui")
 
 
 @st.cache_resource

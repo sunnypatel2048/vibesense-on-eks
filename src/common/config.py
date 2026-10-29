@@ -71,6 +71,11 @@ class QueueSettings(_BaseSettings):
     sqs_endpoint_url: str | None = None                  # SQS_ENDPOINT_URL
 
 
+class LoggingSettings(_BaseSettings):
+    log_format: Literal["json", "console"] = "json"  # LOG_FORMAT; use console locally
+    log_level: str = "INFO"                          # LOG_LEVEL
+
+
 class WorkerSettings(_BaseSettings):
     metrics_port: int = 9000  # METRICS_PORT; /healthz, /readyz and /metrics
 

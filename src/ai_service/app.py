@@ -13,6 +13,7 @@ import structlog
 from src.common.config import AiSettings, get_settings
 from src.common.queue import publish
 from src.common.worker import run_worker
+from src.common.logs import configure_logging
 from src.models import AnalysisOutput
 
 logger = structlog.get_logger()
@@ -65,6 +66,7 @@ def handle_analysis(
 
 
 def main() -> None:
+    configure_logging("ai")
     settings = get_settings(AiSettings)
     _sentiment_pipeline()  # load the model before taking any messages
     handler = partial(handle_analysis, publish_to=publish, next_queue=settings.aggregation_queue)

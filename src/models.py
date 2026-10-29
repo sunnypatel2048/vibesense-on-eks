@@ -1,9 +1,9 @@
-from pydantic import BaseModel, EmailStr, validator
-from datetime import datetime, timedelta, timezone
-from typing import Dict, Tuple
-from sqlalchemy import Column, String, Float, Boolean, DateTime, ForeignKey, JSON, UniqueConstraint, Uuid
-from sqlalchemy.ext.declarative import declarative_base
+from datetime import datetime, timezone
 from uuid import uuid4
+
+from pydantic import BaseModel
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, JSON, String, UniqueConstraint, Uuid
+from sqlalchemy.orm import declarative_base
 
 Base = declarative_base()
 
@@ -19,7 +19,9 @@ class MonitoringJobDB(Base):
     total_duration_seconds = Column(Float, nullable=False)  # e.g., 86400 for 1 day
     is_scheduled = Column(Boolean, default=False)
     last_fetched_at = Column(DateTime, default=None)
-    created_at = Column(DateTime, default=datetime.now(timezone.utc))
+    # A callable, so it runs per row. (`datetime.now(...)` without the lambda would be
+    # evaluated once at import, giving every row the process start time.)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
 class IntervalResultDB(Base):
     __tablename__ = "interval_results"
@@ -34,7 +36,7 @@ class IntervalResultDB(Base):
     avg_sentiment = Column(Float)
     avg_confidence = Column(Float)
     summary = Column(String)
-    raw_comments = Column(JSON)  # Store list of CommentData JSON for history
+    raw_comments = Column(JSON)  # unused; kept to match the existing schema
     notified_at = Column(DateTime)  # set once this interval's email is sent
 
 
@@ -44,28 +46,7 @@ def interval_time(value: str) -> datetime:
     notification both use this so they always agree on an interval's key."""
     return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(timezone.utc).replace(tzinfo=None)
 
-# Pydantic Models (for API/Validation)
-class UserInput(BaseModel):
-    full_name: str
-    post_url: str
-    email: EmailStr
-    duration: str  # e.g., "1 day 4 hour"
-
-class MonitoringJob(BaseModel):
-    job_id: str  # UUID as string
-    post_id: str
-    post_title: str
-    intervals: float
-    total_duration: float
-    email: EmailStr
-    user_full_name: str
-
-class CommentData(BaseModel):
-    comment_id: str
-    text: str
-    published_at: datetime
-    metrics: Dict[str, int]  # e.g., {'like_count': int}
-
+# Messages passed between workers
 class AnalysisOutput(BaseModel):
     text: str
     sentiment: str  # "POSITIVE", "NEGATIVE"

@@ -192,3 +192,35 @@ def test_consumer_is_busy_only_while_handling(sqs):
     assert seen[0] is not None  # busy while the handler ran
     assert consumer.busy_since is None  # idle afterwards
     assert consumer.has_polled
+
+
+# --- Log context (Task 1.9) ----------------------------------------------------
+
+import io  # noqa: E402
+import logging  # noqa: E402
+
+import structlog  # noqa: E402
+
+from src.common.logs import configure_logging  # noqa: E402
+
+
+def test_lines_logged_while_handling_carry_job_and_message_ids(sqs):
+    root = logging.getLogger()
+    saved = root.handlers[:], root.level
+    buffer = io.StringIO()
+    configure_logging("test", log_format="json", level="INFO", stream=buffer)
+    try:
+        publish(QUEUE, {"job_id": "job-42"})
+        log = structlog.get_logger()
+        run_once(lambda payload: log.info("inside_handler"))
+        log.info("after_handler")
+    finally:
+        root.handlers, root.level = saved
+        structlog.contextvars.clear_contextvars()
+        structlog.reset_defaults()
+
+    lines = {line["event"]: line for line in map(json.loads, buffer.getvalue().splitlines())}
+    assert lines["inside_handler"]["job_id"] == "job-42"
+    assert lines["inside_handler"]["message_id"]
+    assert "job_id" not in lines["after_handler"]
+    assert "message_id" not in lines["after_handler"]
