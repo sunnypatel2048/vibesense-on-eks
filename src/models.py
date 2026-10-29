@@ -1,8 +1,7 @@
 from pydantic import BaseModel, EmailStr, validator
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Tuple
-from sqlalchemy import Column, String, Float, Boolean, DateTime, ForeignKey, JSON
-from sqlalchemy.dialects.postgresql import UUID, ARRAY
+from sqlalchemy import Column, String, Float, Boolean, DateTime, ForeignKey, JSON, Uuid
 from sqlalchemy.ext.declarative import declarative_base
 from uuid import uuid4
 
@@ -11,7 +10,7 @@ Base = declarative_base()
 # DB Tables (Schema)
 class MonitoringJobDB(Base):
     __tablename__ = "monitoring_jobs"
-    job_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    job_id = Column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
     post_id = Column(String, nullable=False)
     post_title = Column(String)
     user_full_name = Column(String, nullable=False)
@@ -24,8 +23,8 @@ class MonitoringJobDB(Base):
 
 class IntervalResultDB(Base):
     __tablename__ = "interval_results"
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    job_id = Column(UUID(as_uuid=True), ForeignKey("monitoring_jobs.job_id"), nullable=False)
+    id = Column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    job_id = Column(Uuid(as_uuid=True), ForeignKey("monitoring_jobs.job_id"), nullable=False)
     timestamp = Column(DateTime, nullable=False)
     avg_sentiment = Column(Float)
     avg_confidence = Column(Float)

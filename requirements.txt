@@ -1,28 +1,21 @@
 python-dotenv==1.0.1
 streamlit==1.50.0
-fastapi==0.104.1
-uvicorn==0.23.2
 pydantic==2.12.3
 pydantic-core==2.41.4
 pydantic-settings==2.11.0
 numpy==1.26.4
 sqlalchemy==2.0.23
 psycopg2-binary==2.9.9 # For PostgreSQL
-celery==5.3.6
 transformers==4.35.2
 torch==2.2.0 # For Hugging Face
 spacy==3.8.7
 en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0.tar.gz
-tenacity==8.2.3 # Retries
 structlog==23.2.0 # Logging
 jinja2==3.1.2 # Email Templates
 pytest==7.4.3
 locust==2.18.0 # Load Testing
 alembic==1.13.3 # Database migrations
 google-api-python-client==2.184.0
-redis==5.0.8
-celery[redis]==5.3.6
-celery-redbeat==2.2.0
 email-validator==2.3.0
 boto3==1.43.121
 botocore==1.43.121
