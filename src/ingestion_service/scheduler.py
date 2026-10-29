@@ -1,16 +1,11 @@
-import os
 from celery import Celery
 from redbeat.schedulers import RedBeatScheduler
-from dotenv import load_dotenv
 
-load_dotenv()
-REDIS_URL = os.getenv("REDIS_URL")
-
-def configure_celery_beat(app: Celery):
+def configure_celery_beat(app: Celery, redis_url: str):
     """Configure Celery Beat with RedBeat for dynamic scheduling."""
     
     app.conf.beat_scheduler = RedBeatScheduler
-    app.conf.redbeat_redis_url = REDIS_URL
+    app.conf.redbeat_redis_url = redis_url
     app.conf.beat_max_loop_interval = 60
 
     app.conf.beat_schedule = {

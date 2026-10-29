@@ -1,7 +1,5 @@
 from datetime import datetime, timezone
 from fastapi import FastAPI
-from dotenv import load_dotenv
-import os
 import pika
 import json
 from sqlalchemy import create_engine
@@ -13,21 +11,15 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from jinja2 import Template
 from src.models import Aggregate, Base, MonitoringJobDB
+from src.common.config import NotificationSettings, get_settings
 
-load_dotenv()
-RABBITMQ_URL = os.getenv("RABBITMQ_URL")
-DB_URL = os.getenv("DB_URL")
-SMTP_SERVER = os.getenv("SMTP_SERVER")
-SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
-SMTP_USER = os.getenv("SMTP_USER")
-SMTP_PASS = os.getenv("SMTP_PASS")
-FROM_EMAIL = SMTP_USER
+settings = get_settings(NotificationSettings)
 
 app = FastAPI(title="Notification Service")
 logger = structlog.get_logger()
 
 # DB Setup
-engine = create_engine(DB_URL)
+engine = create_engine(settings.db_url.get_secret_value())
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base.metadata.create_all(bind=engine)
 
@@ -87,7 +79,7 @@ def run_consumer():
     @retry(stop=stop_after_attempt(5), wait=wait_exponential(multiplier=1, min=4, max=60),
            retry=retry_if_exception_type(pika.exceptions.AMQPError))
     def consume():
-        connection = pika.BlockingConnection(pika.URLParameters(RABBITMQ_URL))
+        connection = pika.BlockingConnection(pika.URLParameters(settings.rabbitmq_url.get_secret_value()))
         channel = connection.channel()
         channel.queue_declare(queue="notification_queue", durable=True)
 
@@ -156,7 +148,7 @@ def send_email(user_full_name: str, post_title: str, aggregate: Aggregate, inter
     
     # Create the root message and set the headers
     msg = MIMEMultipart('alternative')
-    msg['From'] = FROM_EMAIL
+    msg['From'] = settings.from_email
     msg['To'] = to_email
     msg['Subject'] = f"🚀 VibeSense Alert: Fresh Insights for Your Video - {post_title}"
 
@@ -165,9 +157,9 @@ def send_email(user_full_name: str, post_title: str, aggregate: Aggregate, inter
     msg.attach(msg_html_part)
 
     # Send the email
-    with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+    with smtplib.SMTP(settings.smtp_server, settings.smtp_port) as server:
         server.starttls()
-        server.login(SMTP_USER, SMTP_PASS)
+        server.login(settings.smtp_user, settings.smtp_pass.get_secret_value())
         server.send_message(msg)
 
 if __name__ == "__main__":

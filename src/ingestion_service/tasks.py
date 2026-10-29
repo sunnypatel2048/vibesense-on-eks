@@ -5,19 +5,16 @@ from src.ingestion_service.preprocessor import preprocess_text
 from redbeat import RedBeatSchedulerEntry
 import pika
 import json
-from dotenv import load_dotenv
-import os
 from tenacity import retry, stop_after_attempt, wait_exponential
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
 import structlog
 from datetime import datetime, timedelta, timezone
+from src.common.config import IngestionSettings, get_settings
 
-load_dotenv()
-DB_URL = os.getenv("DB_URL")
-RABBITMQ_URL = os.getenv("RABBITMQ_URL")
+settings = get_settings(IngestionSettings)
 
-engine = create_engine(DB_URL)
+engine = create_engine(settings.db_url.get_secret_value())
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 logger = structlog.get_logger()
 
@@ -73,7 +70,7 @@ def process_job(job_data: dict):
             }
 
             # Publish batches to RabbitMQ
-            connection = pika.BlockingConnection(pika.URLParameters(RABBITMQ_URL))
+            connection = pika.BlockingConnection(pika.URLParameters(settings.rabbitmq_url.get_secret_value()))
             channel = connection.channel()
             channel.queue_declare(queue='analysis_queue', durable=True)
             payload = { **metadata, 'comments': preprocessed }

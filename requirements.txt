@@ -4,6 +4,7 @@ fastapi==0.104.1
 uvicorn==0.23.2
 pydantic==2.12.3
 pydantic-core==2.41.4
+pydantic-settings==2.11.0
 numpy==1.26.4
 sqlalchemy==2.0.23
 psycopg2-binary==2.9.9 # For PostgreSQL
