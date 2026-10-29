@@ -1,0 +1,6 @@
+# Local development and CI: everything from both images, plus test tools.
+-r app.in
+-r ai.in
+pytest==7.4.3
+pytest-mock==3.17.0
+moto==5.2.5

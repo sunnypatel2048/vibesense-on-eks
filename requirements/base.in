@@ -1,0 +1,7 @@
+# Shared by both images. Hand-edited; run `make lock` after changing any .in file.
+pydantic==2.12.3
+pydantic-settings==2.11.0
+sqlalchemy==2.0.23          # models.py (the AI worker imports its message models)
+boto3==1.43.121             # SQS and EventBridge Scheduler
+structlog==23.2.0
+prometheus-client==0.26.0

@@ -1,0 +1,5 @@
+# The `ai` image: the sentiment worker. No database driver needed.
+-r base.in
+torch==2.2.0
+transformers==4.35.2
+numpy==1.26.4               # torch 2.2 is built against NumPy 1.x
