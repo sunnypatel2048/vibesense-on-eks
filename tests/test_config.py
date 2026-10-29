@@ -2,6 +2,7 @@ import pytest
 from pydantic import ValidationError
 
 from src.common.config import (
+    AggregationSettings,
     AiSettings,
     NotificationSettings,
     UiSettings,
@@ -52,17 +53,17 @@ def test_smtp_port_defaults_to_587(env):
 
 def test_missing_required_value_names_the_field(env):
     set_all(env)
-    env.delenv("RABBITMQ_URL")
+    env.delenv("DB_URL")
     with pytest.raises(ValidationError) as exc:
-        AiSettings(_env_file=None)
-    assert "rabbitmq_url" in str(exc.value)
+        AggregationSettings(_env_file=None)
+    assert "db_url" in str(exc.value)
 
 
 def test_every_missing_value_is_reported_at_once(env):
     with pytest.raises(ValidationError) as exc:
         UiSettings(_env_file=None)
     missing = {err["loc"][0] for err in exc.value.errors()}
-    assert missing == {"db_url", "youtube_api_key", "rabbitmq_url"}
+    assert missing == {"db_url", "youtube_api_key"}
 
 
 def test_blank_value_is_rejected(env):
@@ -73,8 +74,8 @@ def test_blank_value_is_rejected(env):
 
 
 def test_service_only_requires_what_it_uses(env):
-    env.setenv("RABBITMQ_URL", ALL_VARS["RABBITMQ_URL"])
-    AiSettings(_env_file=None)  # no DB, SMTP or YouTube needed
+    s = AiSettings(_env_file=None)  # no DB, SMTP, YouTube or broker needed
+    assert s.analysis_queue == "vibesense-analysis"
 
 
 def test_secrets_are_hidden_when_printed(env):
