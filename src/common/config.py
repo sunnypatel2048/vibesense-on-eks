@@ -71,6 +71,10 @@ class QueueSettings(_BaseSettings):
     sqs_endpoint_url: str | None = None                  # SQS_ENDPOINT_URL
 
 
+class WorkerSettings(_BaseSettings):
+    metrics_port: int = 9000  # METRICS_PORT; /healthz, /readyz and /metrics
+
+
 class SchedulerSettings(_BaseSettings):
     """Per-job ingestion schedules.
 
@@ -104,19 +108,19 @@ class UiSettings(DatabaseSettings, YouTubeSettings, QueueSettings, SchedulerSett
     demo_mode: bool = False  # DEMO_MODE; adds a 30-minute plan with 5-minute reports
 
 
-class IngestionSettings(DatabaseSettings, YouTubeSettings, QueueSettings):
+class IngestionSettings(DatabaseSettings, YouTubeSettings, QueueSettings, WorkerSettings):
     pass
 
 
-class AiSettings(QueueSettings):
+class AiSettings(QueueSettings, WorkerSettings):
     pass
 
 
-class AggregationSettings(DatabaseSettings, QueueSettings):
+class AggregationSettings(DatabaseSettings, QueueSettings, WorkerSettings):
     pass
 
 
-class NotificationSettings(DatabaseSettings, SmtpSettings, QueueSettings):
+class NotificationSettings(DatabaseSettings, SmtpSettings, QueueSettings, WorkerSettings):
     pass
 
 

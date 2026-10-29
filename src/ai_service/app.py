@@ -11,7 +11,8 @@ from typing import Any, Callable, Sequence
 import structlog
 
 from src.common.config import AiSettings, get_settings
-from src.common.queue import consume, publish
+from src.common.queue import publish
+from src.common.worker import run_worker
 from src.models import AnalysisOutput
 
 logger = structlog.get_logger()
@@ -69,7 +70,13 @@ def main() -> None:
     handler = partial(handle_analysis, publish_to=publish, next_queue=settings.aggregation_queue)
     # One message at a time: inference is slow, and holding a batch would
     # starve other AI pods once KEDA scales them out.
-    consume(settings.analysis_queue, handler, batch_size=1)
+    run_worker(
+        settings.analysis_queue,
+        handler,
+        port=settings.metrics_port,
+        max_busy_seconds=300,  # matches the analysis queue's visibility timeout
+        batch_size=1,
+    )
 
 
 if __name__ == "__main__":

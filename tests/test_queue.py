@@ -149,3 +149,46 @@ def test_poll_updates_last_poll(sqs):
 def test_batch_size_must_be_between_1_and_10(batch_size):
     with pytest.raises(ValueError):
         Consumer(QUEUE, lambda p: None, batch_size=batch_size)
+
+
+# --- Metrics and health state (Task 1.8) ---------------------------------------
+
+from prometheus_client import REGISTRY  # noqa: E402
+
+
+def metric(name, **labels):
+    return REGISTRY.get_sample_value(name, labels) or 0.0
+
+
+def test_success_and_failure_are_counted(sqs):
+    ok_before = metric("vibesense_messages_total", queue=QUEUE, result="success")
+    fail_before = metric("vibesense_messages_total", queue=QUEUE, result="failure")
+    published_before = metric("vibesense_messages_published_total", queue=QUEUE)
+
+    publish(QUEUE, {"ok": True})
+    publish(QUEUE, {"ok": False})
+
+    def handler(payload):
+        if not payload["ok"]:
+            raise ValueError("bad")
+
+    run_once(handler, retry_delays_seconds=(60,))
+
+    assert metric("vibesense_messages_total", queue=QUEUE, result="success") == ok_before + 1
+    assert metric("vibesense_messages_total", queue=QUEUE, result="failure") == fail_before + 1
+    assert metric("vibesense_messages_published_total", queue=QUEUE) == published_before + 2
+    assert metric("vibesense_last_success_timestamp_seconds", queue=QUEUE) > 0
+
+
+def test_consumer_is_busy_only_while_handling(sqs):
+    publish(QUEUE, {"n": 1})
+    seen = []
+    consumer = Consumer(QUEUE, lambda p: None, wait_seconds=0)
+    consumer.handler = lambda payload: seen.append(consumer.busy_since)
+
+    assert not consumer.has_polled
+    consumer.run(max_polls=1, install_signal_handlers=False)
+
+    assert seen[0] is not None  # busy while the handler ran
+    assert consumer.busy_since is None  # idle afterwards
+    assert consumer.has_polled
