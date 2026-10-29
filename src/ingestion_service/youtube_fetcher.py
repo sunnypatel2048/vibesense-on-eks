@@ -19,6 +19,13 @@ def parse_published_at(value: str) -> datetime:
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
 
+def get_video_title(video_id: str) -> str | None:
+    """The video's title, or None if it doesn't exist or isn't public."""
+    response = _youtube_client().videos().list(part="snippet", id=video_id).execute()
+    items = response.get("items", [])
+    return items[0]["snippet"]["title"] if items else None
+
+
 def fetch_comments(video_id: str, since: datetime | None = None) -> list[dict[str, Any]]:
     """Fetch top-level comments, newest first.
 

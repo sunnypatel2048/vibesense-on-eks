@@ -1,0 +1,10 @@
+# Streamlit reads this from the directory you start it in (the repo root).
+[theme]
+primaryColor = "#4F46E5"
+font = "sans serif"
+
+[client]
+toolbarMode = "minimal"
+
+[browser]
+gatherUsageStats = false
