@@ -1,11 +1,19 @@
-import spacy
+from functools import lru_cache
 
-nlp = spacy.load("en_core_web_sm")
+
+@lru_cache
+def _nlp():
+    """Load the spaCy model once, on first use (never at import time)."""
+    import spacy
+
+    return spacy.load("en_core_web_sm")
+
 
 def preprocess_text(text: str) -> str:
-    """
-    Cleans text: Remove stop words, URSs, normalize.
-    """
-    doc = nlp(text)
-    cleaned = ' '.join(token.text.lower() for token in doc if not token.is_stop and not token.like_url and not token.is_punct)
-    return cleaned
+    """Lower-case the text and drop stop words, URLs and punctuation."""
+    doc = _nlp()(text)
+    return " ".join(
+        token.text.lower()
+        for token in doc
+        if not token.is_stop and not token.like_url and not token.is_punct
+    )

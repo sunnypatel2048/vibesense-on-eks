@@ -12,8 +12,6 @@ from src.common.config import (
 ALL_VARS = {
     "DB_URL": "postgresql://user:db-secret@localhost/vibesense",
     "YOUTUBE_API_KEY": "yt-secret",
-    "RABBITMQ_URL": "amqp://guest:mq-secret@localhost:5672/",
-    "REDIS_URL": "redis://localhost:6379/0",
     "SMTP_SERVER": "smtp.example.com",
     "SMTP_PORT": "2525",
     "SMTP_USER": "bot@example.com",
@@ -81,7 +79,7 @@ def test_service_only_requires_what_it_uses(env):
 def test_secrets_are_hidden_when_printed(env):
     set_all(env)
     text = repr(NotificationSettings(_env_file=None))
-    for secret in ("db-secret", "mq-secret", "smtp-secret"):
+    for secret in ("db-secret", "smtp-secret"):
         assert secret not in text
 
 

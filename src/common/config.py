@@ -10,9 +10,9 @@ Secrets are `SecretStr`: they print as '**********'. Call `.get_secret_value()`
 only at the point where the value is actually used.
 """
 from functools import lru_cache
-from typing import Any, TypeVar
+from typing import Any, Literal, TypeVar
 
-from pydantic import SecretStr, field_validator
+from pydantic import SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -71,14 +71,31 @@ class QueueSettings(_BaseSettings):
     sqs_endpoint_url: str | None = None                  # SQS_ENDPOINT_URL
 
 
-# Legacy: only Celery's broker uses this now; removed with Celery in Task 1.4.
-class LegacyRabbitMQSettings(_BaseSettings):
-    rabbitmq_url: SecretStr  # RABBITMQ_URL; may contain credentials
+class SchedulerSettings(_BaseSettings):
+    """Per-job ingestion schedules.
 
+    `eventbridge` (the default, used in AWS) creates one EventBridge Scheduler
+    schedule per job. `local` is a no-op: in development the local scheduler
+    process (src/local_scheduler) enqueues due jobs instead.
+    """
 
-# Legacy: removed when Celery Beat/RedBeat are replaced (Task 1.4).
-class LegacyRedisSettings(_BaseSettings):
-    redis_url: SecretStr  # REDIS_URL
+    scheduler_backend: Literal["eventbridge", "local"] = "eventbridge"  # SCHEDULER_BACKEND
+    aws_region: str = "us-east-1"                                       # AWS_REGION
+    schedule_group: str = "vibesense"                                   # SCHEDULE_GROUP
+    scheduler_role_arn: str | None = None                               # SCHEDULER_ROLE_ARN
+    ingest_queue_arn: str | None = None                                 # INGEST_QUEUE_ARN
+
+    @model_validator(mode="after")
+    def _eventbridge_needs_targets(self) -> "SchedulerSettings":
+        if self.scheduler_backend == "eventbridge":
+            missing = [
+                name for name in ("scheduler_role_arn", "ingest_queue_arn") if not getattr(self, name)
+            ]
+            if missing:
+                raise ValueError(
+                    f"{', '.join(missing)} required when SCHEDULER_BACKEND=eventbridge"
+                )
+        return self
 
 
 # --- One class per service -------------------------------------------------
@@ -87,13 +104,7 @@ class UiSettings(DatabaseSettings, YouTubeSettings):
     pass
 
 
-class IngestionSettings(
-    DatabaseSettings,
-    YouTubeSettings,
-    QueueSettings,
-    LegacyRabbitMQSettings,
-    LegacyRedisSettings,
-):
+class IngestionSettings(DatabaseSettings, YouTubeSettings, QueueSettings):
     pass
 
 
@@ -106,6 +117,11 @@ class AggregationSettings(DatabaseSettings, QueueSettings):
 
 
 class NotificationSettings(DatabaseSettings, SmtpSettings, QueueSettings):
+    pass
+
+
+# Development only: the stand-in for EventBridge Scheduler.
+class LocalSchedulerSettings(DatabaseSettings, QueueSettings):
     pass
 
 
