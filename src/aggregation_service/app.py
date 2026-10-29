@@ -6,18 +6,18 @@ Writes: notification queue  {job_id, interval_timestamp, aggregate: Aggregate}
 
 Run with: python -m src.aggregation_service.app
 """
-from datetime import datetime
 from functools import partial
 from typing import Any, Callable, Sequence
 from uuid import UUID
 
 import structlog
 from sqlalchemy import create_engine, func
+from sqlalchemy.dialects import postgresql, sqlite
 from sqlalchemy.orm import Session, sessionmaker
 
 from src.common.config import AggregationSettings, get_settings
 from src.common.queue import consume, publish
-from src.models import Aggregate, AnalysisOutput, Base, IntervalResultDB
+from src.models import Aggregate, AnalysisOutput, Base, IntervalResultDB, interval_time
 
 logger = structlog.get_logger()
 
@@ -49,6 +49,17 @@ def aggregate_interval(results: Sequence[AnalysisOutput]) -> tuple[float, float]
     return weighted, total_confidence / len(results)
 
 
+def insert_interval_if_new(db: Session, values: dict[str, Any]) -> bool:
+    """INSERT ... ON CONFLICT (job_id, timestamp) DO NOTHING. True if a row was added."""
+    dialect = postgresql if db.get_bind().dialect.name == "postgresql" else sqlite
+    statement = (
+        dialect.insert(IntervalResultDB)
+        .values(**values)
+        .on_conflict_do_nothing(index_elements=["job_id", "timestamp"])
+    )
+    return db.execute(statement).rowcount == 1
+
+
 def handle_aggregation(
     payload: dict[str, Any],
     *,
@@ -67,14 +78,15 @@ def handle_aggregation(
     job_id = UUID(metadata["job_id"])
 
     with session_factory() as db:
-        # Not idempotent yet: a redelivered message inserts a second row (Task 1.6).
-        db.add(
-            IntervalResultDB(
-                job_id=job_id,
-                timestamp=datetime.fromisoformat(metadata["interval_timestamp"]),
-                avg_sentiment=interval_sentiment,
-                avg_confidence=interval_confidence,
-            )
+        # A redelivered message hits the unique key and changes nothing.
+        inserted = insert_interval_if_new(
+            db,
+            {
+                "job_id": job_id,
+                "timestamp": interval_time(metadata["interval_timestamp"]),
+                "avg_sentiment": interval_sentiment,
+                "avg_confidence": interval_confidence,
+            },
         )
         db.commit()
         overall_sentiment, overall_confidence = (
@@ -89,8 +101,14 @@ def handle_aggregation(
         overall_sentiment=float(overall_sentiment),
         overall_confidence=float(overall_confidence),
     )
+    # Publish even when the row already existed: if an earlier attempt saved the
+    # row but failed to publish, this retry is the only way the email gets sent.
+    # Notification skips intervals it has already emailed.
     publish_to(next_queue, {**metadata, "aggregate": aggregate.model_dump()})
-    log.info("interval_aggregated", interval_sentiment=round(interval_sentiment, 3))
+    log.info(
+        "interval_aggregated" if inserted else "interval_already_stored",
+        interval_sentiment=round(interval_sentiment, 3),
+    )
 
 
 def main() -> None:
