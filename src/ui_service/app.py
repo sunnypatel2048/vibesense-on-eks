@@ -4,10 +4,9 @@ Run with: python -m streamlit run src/ui_service/app.py
 """
 import streamlit as st
 import structlog
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 
 from src.common.config import UiSettings, get_settings
+from src.common.db import create_session_factory
 from src.common.queue import publish
 from src.common.scheduler import get_scheduler
 from src.ingestion_service.youtube_fetcher import get_video_title
@@ -21,9 +20,7 @@ st.set_page_config(page_title="VibeSense", page_icon="📈", layout="centered")
 @st.cache_resource
 def session_factory():
     """One engine per process, not one per Streamlit rerun."""
-    settings = get_settings(UiSettings)
-    engine = create_engine(settings.db_url.get_secret_value(), pool_pre_ping=True)
-    return sessionmaker(bind=engine)
+    return create_session_factory(get_settings(UiSettings))
 
 
 settings = get_settings(UiSettings)

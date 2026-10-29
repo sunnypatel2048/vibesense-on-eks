@@ -14,12 +14,12 @@ from uuid import UUID
 
 import structlog
 from jinja2 import Template
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import Session
 
 from src.common.config import NotificationSettings, SmtpSettings, get_settings
+from src.common.db import create_session_factory
 from src.common.queue import consume
-from src.models import Aggregate, Base, IntervalResultDB, MonitoringJobDB, interval_time
+from src.models import Aggregate, IntervalResultDB, MonitoringJobDB, interval_time
 
 logger = structlog.get_logger()
 
@@ -179,12 +179,10 @@ def handle_notification(
 
 def main() -> None:
     settings = get_settings(NotificationSettings)
-    engine = create_engine(settings.db_url.get_secret_value(), pool_pre_ping=True)
-    Base.metadata.create_all(bind=engine)  # removed in Task 1.7 (Alembic only)
 
     handler = partial(
         handle_notification,
-        session_factory=sessionmaker(bind=engine),
+        session_factory=create_session_factory(settings),
         send=smtp_sender(settings),
         from_email=settings.from_email,
     )

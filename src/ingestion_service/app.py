@@ -12,10 +12,10 @@ from typing import Any, Callable
 from uuid import UUID
 
 import structlog
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import Session
 
 from src.common.config import IngestionSettings, get_settings
+from src.common.db import create_session_factory
 from src.common.queue import consume, publish
 from src.common.scheduler import as_utc, job_end
 from src.ingestion_service.preprocessor import preprocess_text
@@ -83,10 +83,9 @@ def handle_ingest(
 
 def main() -> None:
     settings = get_settings(IngestionSettings)
-    engine = create_engine(settings.db_url.get_secret_value(), pool_pre_ping=True)
     handler = partial(
         handle_ingest,
-        session_factory=sessionmaker(bind=engine),
+        session_factory=create_session_factory(settings),
         fetch=fetch_comments,
         clean=preprocess_text,
         publish_to=publish,
