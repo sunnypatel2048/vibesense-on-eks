@@ -100,8 +100,8 @@ class SchedulerSettings(_BaseSettings):
 
 # --- One class per service -------------------------------------------------
 
-class UiSettings(DatabaseSettings, YouTubeSettings):
-    pass
+class UiSettings(DatabaseSettings, YouTubeSettings, QueueSettings, SchedulerSettings):
+    demo_mode: bool = False  # DEMO_MODE; adds a 30-minute plan with 5-minute reports
 
 
 class IngestionSettings(DatabaseSettings, YouTubeSettings, QueueSettings):

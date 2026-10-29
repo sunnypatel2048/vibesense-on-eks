@@ -1,103 +1,91 @@
+"""VibeSense web UI: a single form that starts monitoring a YouTube video.
+
+Run with: python -m streamlit run src/ui_service/app.py
+"""
 import streamlit as st
-from uuid import uuid4
-from datetime import timedelta
-import re
-import requests
-from src.models import MonitoringJobDB, UserInput, MonitoringJob
+import structlog
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from datetime import datetime, timezone
-from pydantic import ValidationError
-from src.utils import parse_youtube_video_id
+
 from src.common.config import UiSettings, get_settings
+from src.common.queue import publish
+from src.common.scheduler import get_scheduler
+from src.ingestion_service.youtube_fetcher import get_video_title
+from src.ui_service.jobs import FormError, available_plans, create_job, humanize, validate_request
+
+logger = structlog.get_logger()
+
+st.set_page_config(page_title="VibeSense", page_icon="📈", layout="centered")
+
+
+@st.cache_resource
+def session_factory():
+    """One engine per process, not one per Streamlit rerun."""
+    settings = get_settings(UiSettings)
+    engine = create_engine(settings.db_url.get_secret_value(), pool_pre_ping=True)
+    return sessionmaker(bind=engine)
+
 
 settings = get_settings(UiSettings)
-
-engine = create_engine(settings.db_url.get_secret_value())
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-st.set_page_config(page_title="VibeSense", layout="centered", initial_sidebar_state="collapsed")
-st.markdown("""
-    <style>
-    .main { background-color: #f0f4f8; }
-    .stButton>button { background-color: #4CAF50; color: white; }         
-    </style>
-    """, unsafe_allow_html=True)
+plans = available_plans(settings.demo_mode)
 
 st.title("VibeSense")
-st.subheader("Track sentiment trends on social media posts over time.")
+st.caption("Get an email report on how viewers feel about a YouTube video.")
 
-with st.form(key="input_form"):
-    full_name = st.text_input("Full Name", max_chars=50)
-    email = st.text_input("Email Address", max_chars=100)
-    post_url = st.text_input("YouTube Post URL", help="e.g., https://www.youtube.com/watch?v=VIDEO_ID")
-    duration = st.selectbox("Monitoring Duration", ["1 day 4 hour", "3 days 8 hour", "7 days 24 hour"])
-    submit_button = st.form_submit_button(label="Start Monitoring")
+with st.form("monitor"):
+    video_url = st.text_input("YouTube video link", placeholder="https://www.youtube.com/watch?v=…")
+    full_name = st.text_input("Your name", max_chars=50)
+    email = st.text_input("Email", max_chars=100)
+    plan = st.radio(
+        "Plan",
+        plans,
+        format_func=lambda p: p.label,
+        captions=[p.description for p in plans],
+        horizontal=True,
+    )
+    submitted = st.form_submit_button("Start monitoring", type="primary", use_container_width=True)
 
-if submit_button:
-    with st.spinner("Validating and Queuing Job..."):
+if submitted:
+    try:
+        request = validate_request(full_name, email, video_url)
+    except FormError as error:
+        st.error(error.message)
+        st.stop()
+
+    with st.spinner("Checking the video…"):
         try:
-            input_data = UserInput(
-                full_name=full_name,
-                post_url=post_url,
-                email=email,
-                duration=duration
+            title = get_video_title(request.video_id)
+        except Exception:
+            logger.exception("title_lookup_failed", video_id=request.video_id)
+            st.error("Couldn't reach YouTube just now. Please try again in a minute.")
+            st.stop()
+
+    if title is None:
+        st.error("That video is private or doesn't exist.")
+        st.stop()
+
+    with st.spinner("Starting monitoring…"):
+        try:
+            job = create_job(
+                request,
+                title=title,
+                plan=plan,
+                session_factory=session_factory(),
+                scheduler=get_scheduler(),
+                publish_to=publish,
+                ingest_queue=settings.ingest_queue,
             )
-            post_id = parse_youtube_video_id(input_data.post_url)
+        except Exception:
+            logger.exception("job_creation_failed")
+            st.error("Something went wrong starting monitoring. Please try again.")
+            st.stop()
 
-            # Fetch Video Title for Confirmation
-            api_url = f"https://www.googleapis.com/youtube/v3/videos?part=snippet&id={post_id}&key={settings.youtube_api_key.get_secret_value()}"
-            response = requests.get(api_url).json()
-            if 'items' not in response or not response['items']:
-                raise ValueError("Invalid video ID or private video")
-            title = response['items'][0]['snippet']['title']
-            st.success(f"Video Confirmed: {title}")
-
-            # Parse Duration
-            match = re.match(r'(\d+) days? (\d+) hour', duration)
-            if not match:
-                raise ValueError("Invalid duration format")
-            total_days = int(match.group(1))
-            interval_hours = int(match.group(2))
-            intervals = timedelta(hours=interval_hours).total_seconds()
-            total_duration = timedelta(days=total_days).total_seconds()
-
-            # Create Job
-            job = MonitoringJob(
-                job_id=str(uuid4()),
-                post_id=post_id,
-                post_title=title,
-                intervals=intervals,
-                total_duration=total_duration,
-                user_full_name=full_name,
-                email=email
-            )
-
-            db = SessionLocal()
-            try:
-                job_db = MonitoringJobDB(
-                    job_id=job.job_id,
-                    post_id=job.post_id,
-                    post_title=job.post_title,
-                    user_full_name=job.user_full_name,
-                    email=job.email,
-                    intervals_seconds=job.intervals,
-                    total_duration_seconds=job.total_duration,
-                    created_at=datetime.now(timezone.utc),
-                    last_fetched_at=None
-                )
-                db.add(job_db)
-                db.commit()
-            except Exception as e:
-                raise Exception(f"DB insert failed: {str(e)}") from e
-            finally:
-                db.close()
-            
-            st.success("Monitoring job queued successfully! You'll receive email updates.")
-
-        except (ValueError, ValidationError) as e:
-            print(f"Validation error: {str(e)}")
-            st.error("Input validation failed. Please check your entries.")
-        except Exception as e:
-            print(f"Unexpected error: {str(e)}")
-            st.error("An unexpected error occurred. Please try again later.")
+    every = humanize(plan.interval_seconds)
+    first = "First report in a few minutes" if job.first_report_now else f"First report in {every}"
+    st.success(
+        f"**Monitoring “{title}”**  \n"
+        f"{first}, then every {every} until "
+        f"{job.ends_at:%a, %b %-d at %-I:%M %p} UTC.  \n"
+        f"Reports go to {request.email}.",
+        icon="✅",
+    )
