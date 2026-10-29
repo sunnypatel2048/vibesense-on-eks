@@ -1,7 +1,9 @@
+from uuid import UUID
+
 import pytest
 
 from src.aggregation_service.app import aggregate_interval, handle_aggregation
-from src.models import AnalysisOutput
+from src.models import AnalysisOutput, IntervalResultDB
 
 
 def result(sentiment, confidence):
@@ -49,3 +51,34 @@ def test_handler_stores_interval_and_publishes_running_overall(session_factory, 
     assert latest["aggregate"]["overall_sentiment"] == pytest.approx((1.8 + 1.0) / 2)
     assert latest["aggregate"]["overall_confidence"] == pytest.approx((0.5 + 1.0) / 2)
     assert "results" not in latest
+
+
+def interval_rows(session_factory, job_id):
+    with session_factory() as db:
+        return db.query(IntervalResultDB).filter_by(job_id=UUID(job_id)).count()
+
+
+def test_redelivered_message_stores_one_row_but_still_publishes(session_factory, job, published):
+    message = payload(job["job_id"], "2026-10-29T10:00:00Z", result("Positive", 0.9))
+    deps = dict(session_factory=session_factory, publish_to=published, next_queue="notify")
+
+    handle_aggregation(message, **deps)
+    handle_aggregation(message, **deps)
+
+    assert interval_rows(session_factory, job["job_id"]) == 1
+    assert len(published.calls) == 2  # notification de-duplicates the email
+    assert published.calls[1][1]["aggregate"]["overall_sentiment"] == pytest.approx(2.0)  # average not skewed
+
+
+def test_retry_after_a_failed_publish_still_reaches_notification(session_factory, job, published):
+    message = payload(job["job_id"], "2026-10-29T10:00:00Z", result("Neutral", 1.0))
+
+    def broken_publish(queue, body):
+        raise ConnectionError("SQS unavailable")
+
+    with pytest.raises(ConnectionError):
+        handle_aggregation(message, session_factory=session_factory, publish_to=broken_publish, next_queue="notify")
+    handle_aggregation(message, session_factory=session_factory, publish_to=published, next_queue="notify")
+
+    assert interval_rows(session_factory, job["job_id"]) == 1
+    assert len(published.calls) == 1

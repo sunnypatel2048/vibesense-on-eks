@@ -5,7 +5,7 @@ Reads: notification queue  {job_id, interval_timestamp, aggregate: Aggregate}
 Run with: python -m src.notification_service.app
 """
 import smtplib
-from datetime import datetime
+from datetime import datetime, timezone
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from functools import partial
@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from src.common.config import NotificationSettings, SmtpSettings, get_settings
 from src.common.queue import consume
-from src.models import Aggregate, Base, MonitoringJobDB
+from src.models import Aggregate, Base, IntervalResultDB, MonitoringJobDB, interval_time
 
 logger = structlog.get_logger()
 
@@ -144,6 +144,19 @@ def handle_notification(
         if job is None:
             # Retries can't fix this; after 5 attempts SQS moves it to the DLQ.
             raise ValueError(f"job {job_id} not found")
+
+        interval = (
+            db.query(IntervalResultDB)
+            .filter_by(job_id=job.job_id, timestamp=interval_time(payload["interval_timestamp"]))
+            .one_or_none()
+        )
+        if interval is None:
+            # Aggregation commits the row before publishing, so this is a data problem.
+            raise ValueError(f"interval {payload['interval_timestamp']} not found for job {job_id}")
+        if interval.notified_at is not None:
+            log.info("already_notified")
+            return
+
         msg = build_email(
             from_email=from_email,
             to_email=job.email,
@@ -154,7 +167,13 @@ def handle_notification(
             interval_timestamp=payload["interval_timestamp"],
         )
 
-    send(msg)
+        # Send, then record it. A crash between the two means a duplicate email
+        # on retry; the reverse order would mean a lost one. Exactly-once isn't
+        # possible, so we choose at-least-once with a tiny duplicate window.
+        send(msg)
+        interval.notified_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        db.commit()
+
     log.info("email_sent")
 
 
