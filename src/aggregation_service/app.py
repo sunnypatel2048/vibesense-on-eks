@@ -11,13 +11,14 @@ from typing import Any, Callable, Sequence
 from uuid import UUID
 
 import structlog
-from sqlalchemy import create_engine, func
+from sqlalchemy import func
 from sqlalchemy.dialects import postgresql, sqlite
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import Session
 
 from src.common.config import AggregationSettings, get_settings
+from src.common.db import create_session_factory
 from src.common.queue import consume, publish
-from src.models import Aggregate, AnalysisOutput, Base, IntervalResultDB, interval_time
+from src.models import Aggregate, AnalysisOutput, IntervalResultDB, interval_time
 
 logger = structlog.get_logger()
 
@@ -113,9 +114,7 @@ def handle_aggregation(
 
 def main() -> None:
     settings = get_settings(AggregationSettings)
-    engine = create_engine(settings.db_url.get_secret_value(), pool_pre_ping=True)
-    Base.metadata.create_all(bind=engine)  # removed in Task 1.7 (Alembic only)
-    session_factory = sessionmaker(bind=engine)
+    session_factory = create_session_factory(settings)
 
     handler = partial(
         handle_aggregation,

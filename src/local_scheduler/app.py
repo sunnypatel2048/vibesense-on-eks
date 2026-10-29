@@ -14,10 +14,10 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Callable
 
 import structlog
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import Session
 
 from src.common.config import LocalSchedulerSettings, get_settings
+from src.common.db import create_session_factory
 from src.common.queue import publish
 from src.common.scheduler import as_utc, ingest_message, job_end
 from src.models import MonitoringJobDB
@@ -76,8 +76,7 @@ class DueJobTracker:
 
 def main() -> None:
     settings = get_settings(LocalSchedulerSettings)
-    engine = create_engine(settings.db_url.get_secret_value(), pool_pre_ping=True)
-    tracker = DueJobTracker(sessionmaker(bind=engine), publish, settings.ingest_queue)
+    tracker = DueJobTracker(create_session_factory(settings), publish, settings.ingest_queue)
 
     stopping = threading.Event()
     signal.signal(signal.SIGTERM, lambda *_: stopping.set())
