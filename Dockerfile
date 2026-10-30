@@ -69,7 +69,10 @@ FROM python-base AS runtime
 RUN groupadd --system --gid 10001 app \
  && useradd --system --uid 10001 --gid app --create-home --home-dir /home/app app
 WORKDIR /app
-ENV PATH=/opt/venv/bin:$PATH
+# PYTHONPATH: `import src...` works however a process starts. Without it, the
+# `streamlit` command puts only the script's own folder on the path.
+ENV PATH=/opt/venv/bin:$PATH \
+    PYTHONPATH=/app
 
 # ---------------------------------------------------------------------------
 # app image

@@ -48,6 +48,7 @@ class SmtpSettings(_BaseSettings):
     smtp_port: int = 587    # SMTP_PORT
     smtp_user: str          # SMTP_USER
     smtp_pass: SecretStr    # SMTP_PASS
+    smtp_starttls: bool = True  # SMTP_STARTTLS; off only for local Mailpit
 
     @property
     def from_email(self) -> str:
