@@ -10,3 +10,4 @@ celerybeat-schedule.db
 *.tfplan
 .terraform.lock.hcl.bak
 kubeconfig*
+.scan/

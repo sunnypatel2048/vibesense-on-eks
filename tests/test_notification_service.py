@@ -3,7 +3,7 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from src.models import IntervalResultDB, interval_time
+from src.models import IntervalResultDB, MonitoringJobDB, interval_time
 from src.notification_service.app import confidence_label, handle_notification, sentiment_label
 
 AGGREGATE = {
@@ -69,6 +69,22 @@ def test_handler_emails_the_jobs_owner(session_factory, job):
     assert "Positive" in html and "Negative" in html  # interval vs overall
     assert "4.0 hours" in html
     assert notified_at(session_factory, job["job_id"]) is not None
+
+
+def test_untrusted_title_and_name_are_html_escaped(session_factory, job):
+    hostile = '<a href="https://evil.example">Verify your account</a>'
+    with session_factory() as db:
+        row = db.get(MonitoringJobDB, UUID(job["job_id"]))
+        row.post_title = hostile
+        row.user_full_name = "<script>alert(1)</script>"
+        db.commit()
+    add_interval(session_factory, job["job_id"])
+    sent = []
+    notify(session_factory, job["job_id"], sent.append)
+
+    html = sent[0].get_payload()[0].get_payload(decode=True).decode()
+    assert hostile not in html and "<script>" not in html
+    assert "&lt;a href=" in html and "&lt;script&gt;" in html
 
 
 def test_redelivered_notification_sends_one_email(session_factory, job):

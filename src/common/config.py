@@ -118,7 +118,9 @@ class IngestionSettings(DatabaseSettings, YouTubeSettings, QueueSettings, Worker
 
 
 class AiSettings(QueueSettings, WorkerSettings):
-    pass
+    # Hugging Face commit of the model; set in the ai image so it loads exactly
+    # the revision the golden check was recorded with.
+    model_revision: str | None = None  # MODEL_REVISION
 
 
 class AggregationSettings(DatabaseSettings, QueueSettings, WorkerSettings):
