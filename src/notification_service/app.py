@@ -125,7 +125,8 @@ def smtp_sender(settings: SmtpSettings) -> EmailSender:
 
     def send(msg: MIMEMultipart) -> None:
         with smtplib.SMTP(settings.smtp_server, settings.smtp_port, timeout=30) as server:
-            server.starttls()
+            if settings.smtp_starttls:
+                server.starttls()
             server.login(settings.smtp_user, settings.smtp_pass.get_secret_value())
             server.send_message(msg)
 

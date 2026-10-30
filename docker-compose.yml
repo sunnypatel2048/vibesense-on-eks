@@ -1,6 +1,53 @@
-services:
+# The whole pipeline locally, from the same images that run on EKS:
+#
+#   docker compose up --build        # UI: http://localhost:8501   Inbox: http://localhost:8025
+#   docker compose down              # stop (add -v to also wipe the database)
+#
+# Stand-ins for AWS: ElasticMQ for SQS, the local scheduler for EventBridge
+# Scheduler, Mailpit for Gmail SMTP. Only YOUTUBE_API_KEY comes from your .env.
+
+x-app-image: &app-image
+  image: vibesense-app:dev
+  build:
+    context: .
+    target: app
+  platform: linux/arm64
+
+x-env: &env
+  DB_URL: postgresql://user:pass@db:5432/vibesense
+  SQS_ENDPOINT_URL: http://elasticmq:9324
+  AWS_REGION: us-east-1
+  SCHEDULER_BACKEND: local
+  YOUTUBE_API_KEY: ${YOUTUBE_API_KEY:?set YOUTUBE_API_KEY in .env}
+  SMTP_SERVER: mailpit
+  SMTP_PORT: "1025"
+  SMTP_USER: vibesense@localhost
+  SMTP_PASS: local
+  SMTP_STARTTLS: "false"
+  DEMO_MODE: "true"
+  LOG_FORMAT: console     # json is what EKS uses; console is easier to read here
+
+# Workers report health on :9000/healthz (Task 1.8).
+x-worker-health: &worker-health
+  healthcheck:
+    test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:9000/healthz', timeout=3)"]
+    interval: 15s
+    timeout: 5s
+    start_period: 60s
+    retries: 3
+
+x-after-migrations: &after-migrations
   db:
-    image: postgres:14
+    condition: service_healthy
+  elasticmq:
+    condition: service_started
+  migrate:
+    condition: service_completed_successfully
+
+services:
+  # --- Infrastructure stand-ins ------------------------------------------------
+  db:
+    image: postgres:16     # same major version as RDS (Task 4.4)
     environment:
       POSTGRES_DB: vibesense
       POSTGRES_USER: user
@@ -9,13 +56,102 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d vibesense"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
-  elasticmq:  # Local SQS
+  elasticmq:
     image: softwaremill/elasticmq-native:latest
     ports:
-      - "9324:9324"  # SQS API
+      - "9324:9324"
     volumes:
       - ./local/elasticmq.conf:/opt/elasticmq.conf:ro
+
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "8025:8025"   # web inbox
+      - "1025:1025"   # SMTP
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: "1"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "1"
+
+  # --- One-shot: schema first, like the PreSync Job on EKS (Phase 6) ------------
+  migrate:
+    <<: *app-image
+    command: ["alembic", "upgrade", "head"]
+    environment: *env
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # --- The pipeline -----------------------------------------------------------
+  ui:
+    <<: *app-image
+    command:
+      - streamlit
+      - run
+      - src/ui_service/app.py
+      - --server.address=0.0.0.0
+      - --server.port=8501
+      - --server.headless=true
+    environment: *env
+    ports:
+      - "8501:8501"
+    depends_on: *after-migrations
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8501/_stcore/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+  local-scheduler:
+    <<: *app-image
+    command: ["python", "-m", "src.local_scheduler.app"]
+    environment: *env
+    depends_on: *after-migrations
+    restart: unless-stopped
+
+  ingestion:
+    <<: [*app-image, *worker-health]
+    command: ["python", "-m", "src.ingestion_service.app"]
+    environment: *env
+    ports: ["9001:9000"]
+    depends_on: *after-migrations
+    restart: unless-stopped
+
+  ai:
+    <<: *worker-health
+    image: vibesense-ai:dev
+    build:
+      context: .
+      target: ai
+    platform: linux/arm64
+    environment: *env
+    ports: ["9002:9000"]
+    depends_on:
+      elasticmq:
+        condition: service_started
+    restart: unless-stopped
+
+  aggregation:
+    <<: [*app-image, *worker-health]
+    command: ["python", "-m", "src.aggregation_service.app"]
+    environment: *env
+    ports: ["9003:9000"]
+    depends_on: *after-migrations
+    restart: unless-stopped
+
+  notification:
+    <<: [*app-image, *worker-health]
+    command: ["python", "-m", "src.notification_service.app"]
+    environment: *env
+    ports: ["9004:9000"]
+    depends_on: *after-migrations
+    restart: unless-stopped
 
 volumes:
   postgres_data:

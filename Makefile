@@ -12,7 +12,7 @@ TORCH_CPU = --extra-index-url https://download.pytorch.org/whl/cpu --emit-index-
 LOCK_ARGS ?=
 IMAGE_PLATFORM = --python-platform aarch64-unknown-linux-gnu
 
-.PHONY: lock test
+.PHONY: lock test dev-up dev-down dev-reset dev-logs
 
 lock:
 	$(LOCK) $(TORCH_CPU) --universal requirements/dev.in -o requirements/dev.txt
@@ -21,3 +21,17 @@ lock:
 
 test:
 	python -m pytest -q
+
+# Local stack (docker-compose.yml): UI on :8501, inbox on :8025.
+dev-up:
+	docker compose up --build -d
+	@echo "UI: http://localhost:8501   Inbox: http://localhost:8025"
+
+dev-down:
+	docker compose down
+
+dev-reset:  ## also deletes the local database
+	docker compose down -v
+
+dev-logs:
+	docker compose logs -f --tail=50 ingestion ai aggregation notification local-scheduler
