@@ -30,7 +30,8 @@ def _sentiment_pipeline():
     """Load the model once, on first use (never at import time)."""
     from transformers import pipeline  # heavy import; only the worker needs it
 
-    return pipeline("sentiment-analysis", model=MODEL_NAME)
+    revision = get_settings(AiSettings).model_revision
+    return pipeline("sentiment-analysis", model=MODEL_NAME, revision=revision)
 
 
 def model_scorer(texts: list[str]) -> list[dict[str, Any]]:

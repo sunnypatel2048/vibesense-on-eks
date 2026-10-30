@@ -27,7 +27,10 @@ logger = structlog.get_logger()
 SessionFactory = Callable[[], Session]
 EmailSender = Callable[[MIMEMultipart], None]
 
-email_template = Template("""
+# autoescape: the video title comes from YouTube and the name from the form, so
+# both are untrusted. Without escaping, a title containing HTML (say, a fake
+# "verify your account" link) would render inside an email sent from our address.
+email_template = Template(autoescape=True, source="""
 <!DOCTYPE html>
 <html>
 <head>
