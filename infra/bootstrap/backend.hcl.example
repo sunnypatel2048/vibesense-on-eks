@@ -1,0 +1,5 @@
+# Copy to backend.hcl (gitignored) and fill in the bucket from
+# `terraform output -raw state_bucket`. Kept out of Git so the AWS account ID
+# isn't published; CI passes the same values from GitHub Actions variables.
+bucket = "vibesense-tfstate-<account-id>-us-east-1"
+region = "us-east-1"

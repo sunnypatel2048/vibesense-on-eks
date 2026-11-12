@@ -11,3 +11,6 @@ celerybeat-schedule.db
 .terraform.lock.hcl.bak
 kubeconfig*
 .scan/
+
+# Backend settings contain the AWS account ID; only the .example is committed.
+infra/**/backend.hcl
