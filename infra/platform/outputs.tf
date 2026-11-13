@@ -39,3 +39,12 @@ output "queue_urls" {
 output "queue_arns" {
   value = { for stage, q in module.queue : stage => q.arn }
 }
+
+output "schedule_group" {
+  value = aws_scheduler_schedule_group.jobs.name
+}
+
+output "scheduler_role_arn" {
+  description = "Role each schedule's target uses (SCHEDULER_ROLE_ARN in the UI)."
+  value       = aws_iam_role.scheduler.arn
+}
