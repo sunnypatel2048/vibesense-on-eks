@@ -16,3 +16,5 @@ kubeconfig*
 infra/**/backend.hcl
 # Terraform variable values (personal details); only .example files are committed.
 infra/**/terraform.tfvars
+# Saved plans contain account IDs and IPs.
+tfplan
