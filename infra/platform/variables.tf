@@ -30,3 +30,19 @@ variable "availability_zone_ids" {
     error_message = "Give exactly two zone IDs, not including use1-az3 (unsupported by EKS)."
   }
 }
+
+variable "kubernetes_version" {
+  description = "EKS version. Use the newest in standard support: older ones auto-enroll in extended support at 6x the price."
+  type        = string
+  default     = "1.37"
+}
+
+variable "admin_cidrs" {
+  description = "CIDRs allowed to reach the public EKS API (your IP as x.x.x.x/32). Set in terraform.tfvars (gitignored)."
+  type        = list(string)
+
+  validation {
+    condition     = length(var.admin_cidrs) > 0 && alltrue([for c in var.admin_cidrs : can(cidrhost(c, 0)) && c != "0.0.0.0/0"])
+    error_message = "Give at least one valid CIDR, and never 0.0.0.0/0."
+  }
+}
