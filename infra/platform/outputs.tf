@@ -31,3 +31,11 @@ output "rds_master_secret_arn" {
   description = "Secrets Manager secret (username/password JSON) that RDS manages."
   value       = aws_db_instance.main.master_user_secret[0].secret_arn
 }
+
+output "queue_urls" {
+  value = { for stage, q in module.queue : stage => q.url }
+}
+
+output "queue_arns" {
+  value = { for stage, q in module.queue : stage => q.arn }
+}
