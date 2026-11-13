@@ -4,9 +4,9 @@
 #   --target app  UI, ingestion, aggregation, notification (pick one with the command)
 #   --target ai   the sentiment worker, with its model baked in
 #
-# Build for the Graviton nodes (and natively on Apple Silicon):
-#   docker buildx build --platform linux/arm64 --target app -t vibesense-app:dev --load .
-#   docker buildx build --platform linux/arm64 --target ai  -t vibesense-ai:dev  --load .
+# Build for the Graviton nodes (and natively on Apple Silicon) with `make images`.
+# It passes --provenance=false --sbom=false so each push to ECR is one plain
+# image; see infra/bootstrap/ecr.tf for why.
 
 ARG PYTHON_VERSION=3.12
 # Multi-platform digest of python:3.12-slim. Pinned so builds are reproducible;

@@ -12,7 +12,7 @@ TORCH_CPU = --extra-index-url https://download.pytorch.org/whl/cpu --emit-index-
 LOCK_ARGS ?=
 IMAGE_PLATFORM = --python-platform aarch64-unknown-linux-gnu
 
-.PHONY: lock test dev-up dev-down dev-reset dev-logs
+.PHONY: lock test images dev-up dev-down dev-reset dev-logs
 
 lock:
 	$(LOCK) $(TORCH_CPU) --universal requirements/dev.in -o requirements/dev.txt
@@ -21,6 +21,15 @@ lock:
 
 test:
 	python -m pytest -q
+
+# Both images for linux/arm64 (Graviton). No attestations: one manifest per push to
+# ECR, which keeps the lifecycle policy safe (infra/bootstrap/ecr.tf).
+IMAGE_TAG ?= dev
+BUILD = docker buildx build --platform linux/arm64 --provenance=false --sbom=false --load
+
+images:
+	$(BUILD) --target app -t vibesense-app:$(IMAGE_TAG) .
+	$(BUILD) --target ai -t vibesense-ai:$(IMAGE_TAG) .
 
 # Local stack (docker-compose.yml): UI on :8501, inbox on :8025.
 dev-up:
