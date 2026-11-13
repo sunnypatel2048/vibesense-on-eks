@@ -85,6 +85,11 @@ resource, with a reason**, never globally, so each one is visible in review.
 
 Baseline, 2026-11-12, bootstrap layer: 92 passed, 7 skipped, 0 failed.
 
+Checkov scans this repository's own code. Third-party modules (for example
+`terraform-aws-modules/vpc`) are pinned to exact versions and their resources are
+reviewed in `terraform plan`; their internals aren't scanned, since most findings
+there concern resources the module only creates when switched on.
+
 | Check | Resource | Why skipped | Production would |
 | --- | --- | --- | --- |
 | CKV_AWS_26 (SNS KMS encryption) | `aws_sns_topic.alerts` | CloudWatch alarms can't publish to a topic encrypted with the AWS-managed `aws/sns` key; alarm messages aren't sensitive. | Customer-managed KMS key whose key policy allows CloudWatch. |
@@ -93,6 +98,7 @@ Baseline, 2026-11-12, bootstrap layer: 92 passed, 7 skipped, 0 failed.
 | CKV_AWS_18 (S3 access logging) | `aws_s3_bucket.tfstate` | Needs a second log bucket for a single-user account; CloudTrail already records bucket configuration changes. | Server access logs or CloudTrail S3 data events, recording every state read. |
 | CKV_AWS_144 (S3 cross-region replication) | `aws_s3_bucket.tfstate` | Versioning covers corruption and deletion; the whole project is single-region. | Replicate state to a second region as part of multi-region recovery. |
 | CKV2_AWS_62 (S3 event notifications) | `aws_s3_bucket.tfstate` | Nothing needs to react to state writes. | Optional: alert on unexpected state changes. |
+| CKV_TF_1 (module source pinned to a commit hash) | `module.vpc` (platform) | Exact registry version pinned (`6.7.3`); upgrades are reviewed PRs. A Git commit source would lose readable versions and automated update PRs. | Commit-hash Git sources, updated by an automated dependency bot. |
 
 ## Secrets
 
