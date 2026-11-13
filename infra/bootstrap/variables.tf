@@ -15,3 +15,13 @@ variable "github_repository" {
   type        = string
   default     = "sunnypatel2048/vibesense-on-eks"
 }
+
+variable "alerts_email" {
+  description = "Email for alarm and budget notifications. Set in terraform.tfvars (gitignored)."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$", var.alerts_email))
+    error_message = "alerts_email must be an email address."
+  }
+}

@@ -19,3 +19,8 @@ output "ci_role_arns" {
     plan = aws_iam_role.ci_plan.arn
   }
 }
+
+output "alerts_topic_arn" {
+  description = "SNS topic for CloudWatch alarm notifications (used by the platform layer)."
+  value       = aws_sns_topic.alerts.arn
+}
