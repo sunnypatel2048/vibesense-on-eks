@@ -105,6 +105,7 @@ there concern resources the module only creates when switched on.
 | CKV2_AWS_30 (PostgreSQL query logging) | `aws_db_instance.main` | Needs log exports plus a custom parameter group, and logged statements would contain users' email addresses. | Log slow queries and errors, not every statement. |
 | CKV_AWS_118 (RDS enhanced monitoring) | `aws_db_instance.main` | Needs an extra IAM role; OS metrics bill through CloudWatch Logs. | Enable for OS-level metrics. |
 | CKV_AWS_353 (RDS Performance Insights) | `aws_db_instance.main` | Demo-scale database; application metrics go to Grafana (Phase 9). | CloudWatch Database Insights. |
+| CKV2_AWS_34 (SSM parameter encryption) | `aws_ssm_parameter.platform_config` | Identifiers (ARNs, a hostname, a port), not secrets; plain text keeps them readable when debugging. Secrets are SecureString under `/vibesense/secrets/`. | Same split; SecureString only for actual secrets. |
 | CKV_TF_1 (module source pinned to a commit hash) | `module.vpc` (platform) | Exact registry version pinned (`6.7.3`); upgrades are reviewed PRs. A Git commit source would lose readable versions and automated update PRs. | Commit-hash Git sources, updated by an automated dependency bot. |
 
 ## Secrets
