@@ -48,3 +48,14 @@ output "scheduler_role_arn" {
   description = "Role each schedule's target uses (SCHEDULER_ROLE_ARN in the UI)."
   value       = aws_iam_role.scheduler.arn
 }
+
+output "workload_role_arns" {
+  value = merge(
+    { for name, r in module.pipeline_role : name => r.role_arn },
+    {
+      ui               = module.ui_role.role_arn
+      external-secrets = module.external_secrets_role.role_arn
+      keda-operator    = module.keda_role.role_arn
+    },
+  )
+}
