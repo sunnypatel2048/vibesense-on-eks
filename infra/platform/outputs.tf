@@ -59,3 +59,7 @@ output "workload_role_arns" {
     },
   )
 }
+
+output "platform_config_parameters" {
+  value = sort([for p in aws_ssm_parameter.platform_config : p.name])
+}
