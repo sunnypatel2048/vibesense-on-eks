@@ -6,6 +6,7 @@
 # the AWS-managed aws/sns key, and a customer-managed key costs ~$1/month.
 # Alarm messages contain nothing sensitive. See docs/security.md.
 resource "aws_sns_topic" "alerts" {
+  #checkov:skip=CKV_AWS_26:CloudWatch alarms cannot publish to an aws/sns-encrypted topic and alarm messages are not sensitive (docs/security.md)
   name = "${var.project}-alerts"
 }
 

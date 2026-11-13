@@ -9,6 +9,11 @@ locals {
 }
 
 resource "aws_s3_bucket" "tfstate" {
+  # Accepted for a single-user, single-region project; production alternatives in docs/security.md.
+  #checkov:skip=CKV_AWS_145:SSE-S3 at no cost instead of a customer-managed KMS key
+  #checkov:skip=CKV_AWS_18:Access logs need a second bucket; CloudTrail records configuration changes
+  #checkov:skip=CKV_AWS_144:Versioning covers corruption and deletion; the project runs in one region
+  #checkov:skip=CKV2_AWS_62:Nothing needs to react to state writes
   bucket = local.state_bucket
 
   # The platform layer is destroyed often; this bucket never should be.
