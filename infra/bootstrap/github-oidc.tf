@@ -115,3 +115,36 @@ resource "aws_iam_role_policy" "ci_plan_state_lock" {
   role   = aws_iam_role.ci_plan.id
   policy = data.aws_iam_policy_document.ci_plan_state_lock.json
 }
+
+# ReadOnlyAccess could otherwise decrypt the app's secrets. Terraform never
+# manages them (scripts/put-secrets.sh does), so denying them breaks no plan.
+# An explicit deny always overrides an allow.
+data "aws_iam_policy_document" "ci_plan_deny_secrets" {
+  statement {
+    sid    = "DenyAppSecrets"
+    effect = "Deny"
+    actions = [
+      "ssm:GetParameter",
+      "ssm:GetParameters",
+      "ssm:GetParameterHistory", # returns earlier values too
+    ]
+    resources = [
+      "arn:aws:ssm:${var.region}:${data.aws_caller_identity.current.account_id}:parameter/${var.project}/secrets/*",
+    ]
+  }
+
+  # A by-path read of a parent path (e.g. "/" recursively) would return the
+  # secrets too. Terraform here reads parameters by name, so deny it outright.
+  statement {
+    sid       = "DenyReadByPath"
+    effect    = "Deny"
+    actions   = ["ssm:GetParametersByPath"]
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_role_policy" "ci_plan_deny_secrets" {
+  name   = "deny-app-secrets"
+  role   = aws_iam_role.ci_plan.id
+  policy = data.aws_iam_policy_document.ci_plan_deny_secrets.json
+}
