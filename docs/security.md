@@ -57,6 +57,27 @@ nearly all OS packages, and these findings with them. Trade-offs: no shell for
 debugging, and the Python version must match what the base provides. Worth
 revisiting if OS findings become a recurring cost.
 
+## CI access to AWS
+
+GitHub Actions uses OIDC: each run exchanges a GitHub-signed token for AWS
+credentials that expire after one hour. No access keys are stored in GitHub.
+
+| Role | Trusted `sub` (exact match) | Permissions |
+| --- | --- | --- |
+| `vibesense-ci-push` | `repo:sunnypatel2048/vibesense-on-eks:ref:refs/heads/main` | Push to the two ECR repositories |
+| `vibesense-ci-plan` | `...:pull_request` and `...:ref:refs/heads/main` | `ReadOnlyAccess`, plus writing/deleting `*.tflock` in the state bucket |
+
+- Both trust policies check `aud` and `sub` with `StringEquals`. Checking only the
+  audience would let any GitHub repository assume the roles.
+- There is no apply role. The platform layer is applied from a laptop, so CI can
+  never create cost or destroy resources.
+- Pull requests from forks receive no OIDC token. Workflows must never use
+  `pull_request_target`, which runs fork code with the base repository's permissions.
+- **Accepted trade-off:** `ReadOnlyAccess` can read SSM parameter values. Anyone
+  who can push a branch could run a workflow that reads them. Only the owner can
+  push branches. A hand-written read policy would break whenever Terraform
+  manages a new resource type.
+
 ## Package indexes
 
 The `ai` image installs torch from PyTorch's CPU-only index

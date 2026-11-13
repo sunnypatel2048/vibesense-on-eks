@@ -9,3 +9,9 @@ variable "project" {
   type        = string
   default     = "vibesense"
 }
+
+variable "github_repository" {
+  description = "owner/name of the GitHub repository whose workflows may assume the CI roles."
+  type        = string
+  default     = "sunnypatel2048/vibesense-on-eks"
+}
