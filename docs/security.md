@@ -73,10 +73,29 @@ credentials that expire after one hour. No access keys are stored in GitHub.
   never create cost or destroy resources.
 - Pull requests from forks receive no OIDC token. Workflows must never use
   `pull_request_target`, which runs fork code with the base repository's permissions.
-- **Accepted trade-off:** `ReadOnlyAccess` can read SSM parameter values. Anyone
-  who can push a branch could run a workflow that reads them. Only the owner can
-  push branches. A hand-written read policy would break whenever Terraform
-  manages a new resource type.
+- `ReadOnlyAccess` is broad, because a hand-written read policy would break
+  whenever Terraform manages a new resource type. Its one dangerous read, the
+  app's secrets, is removed with an explicit deny (next section).
+
+## Secrets
+
+The YouTube API key and Gmail credentials are `SecureString` parameters under
+`/vibesense/secrets/`, written by `make secrets` (`scripts/put-secrets.sh`), and
+deliberately **not managed by Terraform**.
+
+Why not Terraform with a placeholder and `ignore_changes = [value]`: that only
+suppresses planned changes. Every `plan` still refreshes the resource, reading
+the decrypted value from AWS and writing it into the state file, so the real
+secret would end up in plain text in the state bucket.
+
+- The script reads values with hidden prompts and passes them on stdin, so they
+  don't appear in shell history or the process list.
+- `vibesense-ci-plan` has an explicit deny on reading `/vibesense/secrets/*` and
+  on by-path reads. Terraform never reads these parameters, so no plan breaks.
+- Non-secret configuration that Terraform creates (Phase 4) lives under
+  `/vibesense/platform/`, outside the denied path.
+- In the cluster, only the External Secrets Operator's role may read
+  `/vibesense/secrets/*` (Task 4.7).
 
 ## Package indexes
 

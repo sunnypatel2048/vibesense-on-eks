@@ -12,7 +12,7 @@ TORCH_CPU = --extra-index-url https://download.pytorch.org/whl/cpu --emit-index-
 LOCK_ARGS ?=
 IMAGE_PLATFORM = --python-platform aarch64-unknown-linux-gnu
 
-.PHONY: lock test images dev-up dev-down dev-reset dev-logs
+.PHONY: lock test images secrets secrets-check dev-up dev-down dev-reset dev-logs
 
 lock:
 	$(LOCK) $(TORCH_CPU) --universal requirements/dev.in -o requirements/dev.txt
@@ -30,6 +30,13 @@ BUILD = docker buildx build --platform linux/arm64 --provenance=false --sbom=fal
 images:
 	$(BUILD) --target app -t vibesense-app:$(IMAGE_TAG) .
 	$(BUILD) --target ai -t vibesense-ai:$(IMAGE_TAG) .
+
+# App secrets in SSM Parameter Store (/vibesense/secrets/*), never via Terraform.
+secrets:
+	scripts/put-secrets.sh
+
+secrets-check:
+	scripts/put-secrets.sh --check
 
 # Local stack (docker-compose.yml): UI on :8501, inbox on :8025.
 dev-up:
