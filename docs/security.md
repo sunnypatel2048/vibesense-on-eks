@@ -77,6 +77,23 @@ credentials that expire after one hour. No access keys are stored in GitHub.
   whenever Terraform manages a new resource type. Its one dangerous read, the
   app's secrets, is removed with an explicit deny (next section).
 
+## Terraform policy scan (Checkov)
+
+`make lint-infra` runs `terraform fmt`, tflint and Checkov over `infra/`; CI runs
+the same on infrastructure PRs. Accepted findings are skipped **inline, on the
+resource, with a reason**, never globally, so each one is visible in review.
+
+Baseline, 2026-11-12, bootstrap layer: 92 passed, 7 skipped, 0 failed.
+
+| Check | Resource | Why skipped | Production would |
+| --- | --- | --- | --- |
+| CKV_AWS_26 (SNS KMS encryption) | `aws_sns_topic.alerts` | CloudWatch alarms can't publish to a topic encrypted with the AWS-managed `aws/sns` key; alarm messages aren't sensitive. | Customer-managed KMS key whose key policy allows CloudWatch. |
+| CKV_AWS_136 (ECR KMS encryption) | `aws_ecr_repository.image` (both) | Already encrypted at rest with AES-256; images contain code, not secrets. | Customer-managed KMS key. ECR encryption is fixed at creation, so switching means recreating the repositories. |
+| CKV_AWS_145 (S3 KMS encryption) | `aws_s3_bucket.tfstate` | SSE-S3 at no cost. | Customer-managed KMS key: every state read is logged as a decrypt, and access can be revoked at the key. |
+| CKV_AWS_18 (S3 access logging) | `aws_s3_bucket.tfstate` | Needs a second log bucket for a single-user account; CloudTrail already records bucket configuration changes. | Server access logs or CloudTrail S3 data events, recording every state read. |
+| CKV_AWS_144 (S3 cross-region replication) | `aws_s3_bucket.tfstate` | Versioning covers corruption and deletion; the whole project is single-region. | Replicate state to a second region as part of multi-region recovery. |
+| CKV2_AWS_62 (S3 event notifications) | `aws_s3_bucket.tfstate` | Nothing needs to react to state writes. | Optional: alert on unexpected state changes. |
+
 ## Secrets
 
 The YouTube API key and Gmail credentials are `SecureString` parameters under

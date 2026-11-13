@@ -5,6 +5,7 @@ locals {
 }
 
 resource "aws_ecr_repository" "image" {
+  #checkov:skip=CKV_AWS_136:Encrypted at rest with AES-256; images hold code not secrets, so a customer-managed KMS key is not worth the cost here (docs/security.md)
   for_each = local.images
   name     = "${var.project}-${each.key}"
 

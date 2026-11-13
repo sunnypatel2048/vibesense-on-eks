@@ -12,7 +12,7 @@ TORCH_CPU = --extra-index-url https://download.pytorch.org/whl/cpu --emit-index-
 LOCK_ARGS ?=
 IMAGE_PLATFORM = --python-platform aarch64-unknown-linux-gnu
 
-.PHONY: lock test images secrets secrets-check dev-up dev-down dev-reset dev-logs
+.PHONY: lock test images secrets secrets-check lint-infra dev-up dev-down dev-reset dev-logs
 
 lock:
 	$(LOCK) $(TORCH_CPU) --universal requirements/dev.in -o requirements/dev.txt
@@ -30,6 +30,15 @@ BUILD = docker buildx build --platform linux/arm64 --provenance=false --sbom=fal
 images:
 	$(BUILD) --target app -t vibesense-app:$(IMAGE_TAG) .
 	$(BUILD) --target ai -t vibesense-ai:$(IMAGE_TAG) .
+
+# Terraform checks, the same three CI runs on infra PRs (Task 7.2).
+TFLINT = tflint --config "$(CURDIR)/infra/.tflint.hcl"
+
+lint-infra:
+	terraform fmt -check -recursive infra
+	$(TFLINT) --init
+	cd infra && $(TFLINT) --recursive
+	checkov --directory infra --framework terraform --compact --quiet
 
 # App secrets in SSM Parameter Store (/vibesense/secrets/*), never via Terraform.
 secrets:

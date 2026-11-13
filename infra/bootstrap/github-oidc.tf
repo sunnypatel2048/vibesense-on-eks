@@ -19,8 +19,8 @@ data "aws_iam_policy_document" "github_trust" {
   for_each = {
     push = ["${local.repo_sub_prefix}:ref:refs/heads/main"]
     plan = [
-      "${local.repo_sub_prefix}:pull_request",          # terraform plan on PRs
-      "${local.repo_sub_prefix}:ref:refs/heads/main",   # nightly leftovers check (Task 10.4)
+      "${local.repo_sub_prefix}:pull_request",        # terraform plan on PRs
+      "${local.repo_sub_prefix}:ref:refs/heads/main", # nightly leftovers check (Task 10.4)
     ]
   }
 
@@ -72,7 +72,7 @@ data "aws_iam_policy_document" "ci_push" {
       "ecr:UploadLayerPart",
       "ecr:CompleteLayerUpload",
       "ecr:PutImage",
-      "ecr:BatchGetImage",          # read back for layer caching
+      "ecr:BatchGetImage", # read back for layer caching
       "ecr:GetDownloadUrlForLayer",
     ]
     resources = [for repo in aws_ecr_repository.image : repo.arn]
