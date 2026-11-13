@@ -22,3 +22,12 @@ output "kubeconfig_command" {
   description = "Run after apply to point kubectl at the cluster."
   value       = "aws eks update-kubeconfig --region ${var.region} --name ${module.eks.cluster_name}"
 }
+
+output "rds_endpoint" {
+  value = aws_db_instance.main.address
+}
+
+output "rds_master_secret_arn" {
+  description = "Secrets Manager secret (username/password JSON) that RDS manages."
+  value       = aws_db_instance.main.master_user_secret[0].secret_arn
+}
