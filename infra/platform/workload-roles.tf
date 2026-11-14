@@ -113,6 +113,18 @@ data "aws_iam_policy_document" "external_secrets" {
     actions   = ["secretsmanager:GetSecretValue", "secretsmanager:DescribeSecret"]
     resources = [aws_db_instance.main.master_user_secret[0].secret_arn]
   }
+
+  # RDS names its managed secret rds!db-<random>, new on every create, so the
+  # cluster finds it by name pattern (External Secrets `find`). ListSecrets
+  # returns names and metadata, never values, and can't be scoped to resources.
+  # Reading VALUES stays limited to the one secret above: BatchGetSecretValue
+  # (which newer operator versions may use) also requires GetSecretValue on
+  # each secret, so it can't widen access.
+  statement {
+    sid       = "FindDatabaseSecretByName"
+    actions   = ["secretsmanager:ListSecrets", "secretsmanager:BatchGetSecretValue"]
+    resources = ["*"]
+  }
 }
 
 module "external_secrets_role" {
