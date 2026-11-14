@@ -12,7 +12,7 @@ TORCH_CPU = --extra-index-url https://download.pytorch.org/whl/cpu --emit-index-
 LOCK_ARGS ?=
 IMAGE_PLATFORM = --python-platform aarch64-unknown-linux-gnu
 
-.PHONY: lock test images secrets secrets-check lint-infra argocd dev-up dev-down dev-reset dev-logs
+.PHONY: lock test images secrets secrets-check lint-infra lint-chart argocd dev-up dev-down dev-reset dev-logs
 
 lock:
 	$(LOCK) $(TORCH_CPU) --universal requirements/dev.in -o requirements/dev.txt
@@ -50,6 +50,14 @@ secrets-check:
 # Install Argo CD and apply the root app (after `terraform apply` + kubeconfig).
 argocd:
 	scripts/bootstrap-argocd.sh
+
+# Render the app chart with placeholder values (Argo CD supplies the real ones).
+CHART := deploy/charts/vibesense
+CHART_TEST_VALUES := --set registry=123456789012.dkr.ecr.us-east-1.amazonaws.com \
+	--set images.app.tag=test --set images.ai.tag=test --set ingress.allowedCidrs=203.0.113.7/32
+lint-chart:
+	helm lint $(CHART) $(CHART_TEST_VALUES)
+	helm template vibesense $(CHART) -n vibesense $(CHART_TEST_VALUES) > /dev/null
 
 # Local stack (docker-compose.yml): UI on :8501, inbox on :8025.
 dev-up:

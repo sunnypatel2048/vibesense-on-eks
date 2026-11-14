@@ -3,8 +3,7 @@ from src.common.config import MigrationSettings, get_settings
 
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
+from sqlalchemy import create_engine, pool
 
 from alembic import context
 
@@ -64,14 +63,11 @@ def run_migrations_online() -> None:
     # Same settings class as the app, so both always agree on the database.
     db_url = get_settings(MigrationSettings).db_url.get_secret_value()
 
-    # Set the sqlalchemy.url on the config object
-    config.set_main_option("sqlalchemy.url", db_url)
-
-    connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
-    )
+    # Build the engine from the URL directly rather than writing it into the
+    # Alembic config: alembic.ini is a ConfigParser file, so a '%' in the URL
+    # (a URL-encoded RDS password) would be read as interpolation syntax and
+    # crash the migration.
+    connectable = create_engine(db_url, poolclass=pool.NullPool)
 
     with connectable.connect() as connection:
         context.configure(

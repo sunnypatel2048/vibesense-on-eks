@@ -1,0 +1,6 @@
+apiVersion: v2
+name: vibesense
+description: VibeSense on EKS - the UI, the four pipeline workers, their secrets and the schema migration.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

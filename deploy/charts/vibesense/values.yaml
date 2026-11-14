@@ -1,0 +1,112 @@
+# VibeSense chart. Argo CD deploys it (deploy/apps/, Task 6.3); render it
+# locally with:
+#   helm template vibesense deploy/charts/vibesense -n vibesense \
+#     --set registry=example.dkr.ecr.us-east-1.amazonaws.com \
+#     --set images.app.tag=dev --set images.ai.tag=dev \
+#     --set ingress.allowedCidrs=203.0.113.7/32
+
+# The ECR registry, <account>.dkr.ecr.us-east-1.amazonaws.com. Not set here on
+# purpose: Argo CD fills it in from the cluster's metadata (Task 6.3), so the
+# AWS account ID never lands in git.
+registry: ""
+
+images:
+  app:
+    repository: vibesense-app
+    tag: "" # CI writes each release's tag here (Phase 7)
+  ai:
+    repository: vibesense-ai
+    tag: ""
+
+# Plain settings every workload gets. A workload's own `env` wins on a clash.
+env:
+  AWS_REGION: us-east-1
+  LOG_FORMAT: json
+
+# Where each secret env var comes from: a Kubernetes Secret written by the
+# ExternalSecrets in templates/external-secrets.yaml. A workload lists only the
+# names it needs (`secretEnv`), so e.g. the AI worker never sees the database
+# password or the SMTP password.
+secretEnv:
+  DB_URL: { secret: vibesense-database, key: DB_URL }
+  YOUTUBE_API_KEY: { secret: vibesense-app-secrets, key: YOUTUBE_API_KEY }
+  SMTP_USER: { secret: vibesense-app-secrets, key: SMTP_USER }
+  SMTP_PASS: { secret: vibesense-app-secrets, key: SMTP_PASS }
+  SCHEDULER_ROLE_ARN: { secret: vibesense-platform, key: SCHEDULER_ROLE_ARN }
+  INGEST_QUEUE_ARN: { secret: vibesense-platform, key: INGEST_QUEUE_ARN }
+
+externalSecrets:
+  refreshInterval: 1h
+  parameterStore: aws-parameter-store # ClusterSecretStores (deploy/cluster-config/)
+  secretsManager: aws-secrets-manager
+
+# Queue workers. The map key is the Deployment name AND the ServiceAccount
+# name, which must match a Pod Identity association (infra/platform/workload-roles.tf).
+#
+# Resources: memory requests and limits on everything, CPU requests only. A CPU
+# limit throttles a pod even when the node has idle CPU; memory can't be
+# shared that way, so it gets a hard cap. Starting values; re-measure with
+# `kubectl top pods -n vibesense` (Task 6.4).
+workers:
+  ingestion:
+    image: app
+    command: ["python", "-m", "src.ingestion_service.app"]
+    secretEnv: [DB_URL, YOUTUBE_API_KEY]
+    resources:
+      requests: { cpu: 100m, memory: 192Mi }
+      limits: { memory: 384Mi }
+  ai:
+    image: ai # the image's own CMD starts the AI worker
+    secretEnv: [] # no database, no SMTP: it only reads and writes queues
+    startupSeconds: 180 # loads the model before serving probes
+    resources:
+      requests: { cpu: 500m, memory: 1536Mi }
+      limits: { memory: 2Gi }
+  aggregation:
+    image: app
+    command: ["python", "-m", "src.aggregation_service.app"]
+    secretEnv: [DB_URL]
+    resources:
+      requests: { cpu: 50m, memory: 128Mi }
+      limits: { memory: 256Mi }
+  notification:
+    image: app
+    command: ["python", "-m", "src.notification_service.app"]
+    env:
+      SMTP_SERVER: smtp.gmail.com
+      SMTP_PORT: "587"
+    secretEnv: [DB_URL, SMTP_USER, SMTP_PASS]
+    resources:
+      requests: { cpu: 50m, memory: 128Mi }
+      limits: { memory: 256Mi }
+
+# Defaults for every worker; a worker can override replicas or startupSeconds.
+workerDefaults:
+  replicas: 1 # KEDA takes over scaling in Phase 8
+  metricsPort: 9000 # /healthz, /readyz, /metrics (src/common/worker.py)
+  startupSeconds: 120
+
+ui:
+  # One replica on purpose: Streamlit keeps each session on one pod over a
+  # WebSocket (Task 6.2).
+  replicas: 1
+  port: 8501
+  env:
+    DEMO_MODE: "true" # adds the 30-minute demo plan
+  secretEnv: [DB_URL, YOUTUBE_API_KEY, SCHEDULER_ROLE_ARN, INGEST_QUEUE_ARN]
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { memory: 512Mi }
+
+ingress:
+  enabled: true
+  # Comma-separated CIDRs allowed to reach the ALB. Required: the UI creates
+  # jobs that call the YouTube API and send email, so it isn't left open to the
+  # internet. Argo CD fills it in from the cluster's metadata (Task 6.3).
+  allowedCidrs: ""
+
+migration:
+  enabled: true
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { memory: 256Mi }

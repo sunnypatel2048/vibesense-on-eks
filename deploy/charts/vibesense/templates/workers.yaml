@@ -1,0 +1,77 @@
+{{- /* One ServiceAccount + Deployment per entry in .Values.workers. */ -}}
+{{- $d := .Values.workerDefaults }}
+{{- range $name, $w := .Values.workers }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $name }} # must match its Pod Identity association
+  labels:
+    {{- include "vibesense.labels" $ | nindent 4 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "vibesense.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $name }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1" # after secrets (-1) and the migration (0)
+spec:
+  replicas: {{ $w.replicas | default $d.replicas }}
+  selector:
+    matchLabels:
+      {{- include "vibesense.selectorLabels" (dict "component" $name) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "vibesense.selectorLabels" (dict "component" $name) | nindent 8 }}
+    spec:
+      serviceAccountName: {{ $name }}
+      securityContext:
+        {{- include "vibesense.podSecurityContext" $ | nindent 8 }}
+      # On SIGTERM the worker stops polling and hands unfinished messages back
+      # to SQS (src/common/queue.py), well within this window.
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: {{ $name }}
+          image: {{ include "vibesense.image" (dict "root" $ "image" $w.image) }}
+          {{- with $w.command }}
+          command: {{ toJson . }}
+          {{- end }}
+          ports:
+            - name: http-metrics
+              containerPort: {{ $d.metricsPort }}
+          env:
+            {{- include "vibesense.env" (dict "root" $ "env" $w.env "secretEnv" $w.secretEnv) | nindent 12 }}
+          # The probe server starts once the worker is set up (for the AI
+          # worker: once the model is loaded), so startup allows for that.
+          startupProbe:
+            httpGet: { path: /healthz, port: http-metrics }
+            periodSeconds: 5
+            failureThreshold: {{ div ($w.startupSeconds | default $d.startupSeconds) 5 }}
+          # Liveness tells stuck from busy (src/common/worker.py), so it can be
+          # strict without killing a worker in the middle of a long message.
+          livenessProbe:
+            httpGet: { path: /healthz, port: http-metrics }
+            periodSeconds: 15
+            timeoutSeconds: 3
+            failureThreshold: 3
+          # Ready once the first SQS poll succeeded: credentials and queue
+          # access work. A rollout waits for that before replacing the old pod.
+          readinessProbe:
+            httpGet: { path: /readyz, port: http-metrics }
+            periodSeconds: 10
+            timeoutSeconds: 3
+          resources:
+            {{- toYaml $w.resources | nindent 12 }}
+          securityContext:
+            {{- include "vibesense.containerSecurityContext" $ | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+{{- end }}

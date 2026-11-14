@@ -36,6 +36,13 @@ x-worker-health: &worker-health
     start_period: 60s
     retries: 3
 
+# Same restriction as on EKS (deploy/charts/vibesense): the image can't write to
+# its own filesystem, only to /tmp.
+x-read-only: &read-only
+  read_only: true
+  tmpfs:
+    - /tmp
+
 x-after-migrations: &after-migrations
   db:
     condition: service_healthy
@@ -80,7 +87,7 @@ services:
 
   # --- One-shot: schema first, like the PreSync Job on EKS (Phase 6) ------------
   migrate:
-    <<: *app-image
+    <<: [*app-image, *read-only]
     command: ["alembic", "upgrade", "head"]
     environment: *env
     depends_on:
@@ -89,7 +96,7 @@ services:
 
   # --- The pipeline -----------------------------------------------------------
   ui:
-    <<: *app-image
+    <<: [*app-image, *read-only]
     command:
       - streamlit
       - run
@@ -109,14 +116,14 @@ services:
     restart: unless-stopped
 
   local-scheduler:
-    <<: *app-image
+    <<: [*app-image, *read-only]
     command: ["python", "-m", "src.local_scheduler.app"]
     environment: *env
     depends_on: *after-migrations
     restart: unless-stopped
 
   ingestion:
-    <<: [*app-image, *worker-health]
+    <<: [*app-image, *worker-health, *read-only]
     command: ["python", "-m", "src.ingestion_service.app"]
     environment: *env
     ports: ["9001:9000"]
@@ -124,7 +131,7 @@ services:
     restart: unless-stopped
 
   ai:
-    <<: *worker-health
+    <<: [*worker-health, *read-only]
     image: vibesense-ai:dev
     build:
       context: .
@@ -138,7 +145,7 @@ services:
     restart: unless-stopped
 
   aggregation:
-    <<: [*app-image, *worker-health]
+    <<: [*app-image, *worker-health, *read-only]
     command: ["python", "-m", "src.aggregation_service.app"]
     environment: *env
     ports: ["9003:9000"]
@@ -146,7 +153,7 @@ services:
     restart: unless-stopped
 
   notification:
-    <<: [*app-image, *worker-health]
+    <<: [*app-image, *worker-health, *read-only]
     command: ["python", "-m", "src.notification_service.app"]
     environment: *env
     ports: ["9004:9000"]
