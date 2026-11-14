@@ -1,0 +1,33 @@
+# Pattern for every add-on: the upstream chart pinned exactly, values from this repo.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: metrics-server
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+  finalizers:
+    # Deleting this Application deletes what it installed (relied on by `make down`).
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  sources:
+    - repoURL: https://kubernetes-sigs.github.io/metrics-server/
+      chart: metrics-server
+      targetRevision: 3.14.0 # exact; bump deliberately
+      helm:
+        valueFiles:
+          - $values/deploy/platform/metrics-server-values.yaml
+    - repoURL: https://github.com/sunnypatel2048/vibesense-on-eks.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
