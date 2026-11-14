@@ -10,8 +10,8 @@ relies on the Application health check in `deploy/platform/argocd-values.yaml`).
 
 | Wave | Applications | Why this order |
 | --- | --- | --- |
-| 0 | metrics-server, aws-load-balancer-controller, external-secrets, keda | Controllers and CRDs everything else depends on |
-| 1 | cluster-config (`deploy/cluster-config/`), karpenter | Objects whose types wave 0 installs (ClusterSecretStores, later NodePools) |
+| 0 | metrics-server, cert-manager, external-secrets, keda | Controllers and CRDs everything else depends on |
+| 1 | aws-load-balancer-controller, cluster-config (`deploy/cluster-config/`), karpenter | Need wave 0's CRDs (cert-manager Certificates, ClusterSecretStores, later NodePools) |
 | 2 | kube-prometheus-stack | Monitoring CRDs (ServiceMonitor, PodMonitor) |
 | 3 | vibesense (an ApplicationSet) | Uses ExternalSecrets, an Ingress (ALB), KEDA ScaledObjects and PodMonitors |
 

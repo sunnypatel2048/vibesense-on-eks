@@ -20,6 +20,10 @@ serviceAccount:
 # it down, those creations fail. Two replicas across the two system nodes.
 replicaCount: 2
 
+# The admission webhook's certificate is issued at runtime by cert-manager
+# (deploy/apps/cert-manager.yaml), not generated when the chart is rendered.
+enableCertManager: true
+
 # We only use Ingress. Otherwise the controller takes over every Service of
 # type LoadBalancer in the cluster.
 enableServiceMutatorWebhook: false
