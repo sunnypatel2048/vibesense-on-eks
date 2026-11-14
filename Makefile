@@ -12,7 +12,7 @@ TORCH_CPU = --extra-index-url https://download.pytorch.org/whl/cpu --emit-index-
 LOCK_ARGS ?=
 IMAGE_PLATFORM = --python-platform aarch64-unknown-linux-gnu
 
-.PHONY: lock test images secrets secrets-check lint-infra dev-up dev-down dev-reset dev-logs
+.PHONY: lock test images secrets secrets-check lint-infra argocd dev-up dev-down dev-reset dev-logs
 
 lock:
 	$(LOCK) $(TORCH_CPU) --universal requirements/dev.in -o requirements/dev.txt
@@ -46,6 +46,10 @@ secrets:
 
 secrets-check:
 	scripts/put-secrets.sh --check
+
+# Install Argo CD and apply the root app (after `terraform apply` + kubeconfig).
+argocd:
+	scripts/bootstrap-argocd.sh
 
 # Local stack (docker-compose.yml): UI on :8501, inbox on :8025.
 dev-up:

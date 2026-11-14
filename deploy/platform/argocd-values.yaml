@@ -1,0 +1,25 @@
+# Helm values for Argo CD (chart argo/argo-cd), installed by scripts/bootstrap-argocd.sh.
+
+global:
+  # Platform components stay on the stable system nodes, not Karpenter's
+  # short-lived burst nodes (Phase 8).
+  nodeSelector:
+    vibesense/node-role: system
+
+# One user: no SSO. Fewer pods on two small nodes.
+dex:
+  enabled: false
+
+notifications:
+  enabled: false
+
+server:
+  # UI only through `kubectl port-forward`; no load balancer, no public URL.
+  service:
+    type: ClusterIP
+
+configs:
+  cm:
+    # How often Argo CD checks Git for changes (default 3m). Shorter keeps
+    # demos snappy; a webhook from GitHub would make it instant.
+    timeout.reconciliation: 60s

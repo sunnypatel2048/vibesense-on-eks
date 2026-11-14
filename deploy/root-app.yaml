@@ -1,0 +1,23 @@
+# The root Application (app-of-apps). Applied once by scripts/bootstrap-argocd.sh;
+# from then on, every Application under deploy/apps/ on main is installed and
+# kept in sync automatically.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: root
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/sunnypatel2048/vibesense-on-eks.git
+    targetRevision: main
+    path: deploy/apps
+    directory:
+      include: "*.yaml" # README.md and other files are ignored
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true    # deleted from Git -> deleted from the cluster
+      selfHeal: true # changed by hand in the cluster -> changed back
