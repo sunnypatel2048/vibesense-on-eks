@@ -64,3 +64,14 @@ output "workload_role_arns" {
 output "platform_config_parameters" {
   value = sort([for p in aws_ssm_parameter.platform_config : p.name])
 }
+
+# GitOps Bridge: values Argo CD needs that must not live in git. The bootstrap
+# script copies them onto Argo CD's cluster record, and the vibesense
+# ApplicationSet passes them to the chart. Contains the account ID and your IP.
+output "gitops_metadata" {
+  description = "Read by scripts/bootstrap-argocd.sh; never commit."
+  value = {
+    ecr_registry     = "${local.account_id}.dkr.ecr.${var.region}.amazonaws.com"
+    ui_allowed_cidrs = join(",", var.admin_cidrs)
+  }
+}

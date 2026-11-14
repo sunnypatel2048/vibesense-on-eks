@@ -1,0 +1,51 @@
+# VibeSense itself: deploy/charts/vibesense, one Application per registered
+# cluster labelled vibesense.io/workloads=true (today: this one).
+#
+# An ApplicationSet rather than a plain Application so the chart can get values
+# that must stay out of git. scripts/bootstrap-argocd.sh copies them from
+# Terraform onto the cluster's record as annotations, and the cluster
+# generator reads them here ("GitOps Bridge").
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: vibesense
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"] # a missing annotation fails loudly
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            vibesense.io/workloads: "true"
+  template:
+    metadata:
+      name: vibesense
+      finalizers:
+        # Deleting the Application deletes the app's resources (make down).
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/sunnypatel2048/vibesense-on-eks.git
+        targetRevision: main
+        path: deploy/charts/vibesense
+        helm:
+          # valuesObject, not parameters: parameters become `helm --set`,
+          # which splits on the commas in a CIDR list.
+          valuesObject:
+            registry: '{{ index .metadata.annotations "vibesense.io/ecr-registry" }}'
+            ingress:
+              allowedCidrs: '{{ index .metadata.annotations "vibesense.io/ui-allowed-cidrs" }}'
+      destination:
+        server: "{{ .server }}"
+        namespace: vibesense # Pod Identity associations are in this namespace
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true

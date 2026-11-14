@@ -12,7 +12,7 @@ TORCH_CPU = --extra-index-url https://download.pytorch.org/whl/cpu --emit-index-
 LOCK_ARGS ?=
 IMAGE_PLATFORM = --python-platform aarch64-unknown-linux-gnu
 
-.PHONY: lock test images secrets secrets-check lint-infra lint-chart argocd dev-up dev-down dev-reset dev-logs
+.PHONY: lock test images push secrets secrets-check lint-infra lint-chart argocd dev-up dev-down dev-reset dev-logs
 
 lock:
 	$(LOCK) $(TORCH_CPU) --universal requirements/dev.in -o requirements/dev.txt
@@ -30,6 +30,24 @@ BUILD = docker buildx build --platform linux/arm64 --provenance=false --sbom=fal
 images:
 	$(BUILD) --target app -t vibesense-app:$(IMAGE_TAG) .
 	$(BUILD) --target ai -t vibesense-ai:$(IMAGE_TAG) .
+
+# Build and push both images to ECR, tagged with the current commit, then put
+# that tag in deploy/charts/vibesense/values.yaml. Phase 7's CI replaces this.
+# The tag must describe the code, so it refuses to run with uncommitted changes
+# to anything that goes into an image.
+REGISTRY = $(shell aws sts get-caller-identity --query Account --output text).dkr.ecr.us-east-1.amazonaws.com
+GIT_SHA = $(shell git rev-parse --short=12 HEAD)
+IMAGE_INPUTS = src requirements Dockerfile alembic alembic.ini .streamlit
+
+push:
+	@test -z "$$(git status --porcelain -- $(IMAGE_INPUTS))" || { echo "Commit changes to $(IMAGE_INPUTS) first: the tag must match the code." >&2; exit 1; }
+	$(MAKE) images IMAGE_TAG=$(GIT_SHA)
+	aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $(REGISTRY)
+	for image in app ai; do \
+		docker tag vibesense-$$image:$(GIT_SHA) $(REGISTRY)/vibesense-$$image:$(GIT_SHA) && \
+		docker push $(REGISTRY)/vibesense-$$image:$(GIT_SHA) || exit 1; \
+	done
+	@echo "Pushed tag $(GIT_SHA). Set images.app.tag and images.ai.tag to it in deploy/charts/vibesense/values.yaml."
 
 # Terraform checks, the same three CI runs on infra PRs (Task 7.2).
 TFLINT = tflint --config "$(CURDIR)/infra/.tflint.hcl"
