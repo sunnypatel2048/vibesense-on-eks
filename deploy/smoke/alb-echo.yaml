@@ -1,0 +1,62 @@
+# Smoke test for the AWS Load Balancer Controller. Applied by hand, never by
+# Argo CD (deploy/smoke/ is outside deploy/apps/).
+#
+#   kubectl apply -f deploy/smoke/alb-echo.yaml
+#   kubectl -n smoke get ingress echo -w          # wait for an ADDRESS
+#   curl -s http://<address>/
+#   kubectl delete -f deploy/smoke/alb-echo.yaml  # BEFORE terraform destroy
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: smoke
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: echo
+  namespace: smoke
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: echo }
+  template:
+    metadata:
+      labels: { app: echo }
+    spec:
+      containers:
+        - name: nginx
+          image: public.ecr.aws/nginx/nginx:stable-alpine # multi-arch, from ECR Public
+          ports:
+            - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: smoke
+spec:
+  selector: { app: echo }
+  ports:
+    - port: 80
+      targetPort: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: echo
+  namespace: smoke
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip # straight to pod IPs (VPC CNI)
+spec:
+  ingressClassName: alb
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: echo
+                port:
+                  number: 80

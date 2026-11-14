@@ -1,7 +1,7 @@
 # One least-privilege IAM role per workload, via EKS Pod Identity (ADR 9).
 # A compromised pod can do only what its own role allows.
-# The Load Balancer Controller and Karpenter roles use their projects' published
-# policies and are added with those components (Tasks 5.4 and 8.3).
+# The Load Balancer Controller uses its project's published policy (below);
+# Karpenter's role comes with the Karpenter module in Task 8.3.
 
 locals {
   queue_arn = { for stage, q in module.queue : stage => q.arn }
@@ -145,4 +145,21 @@ module "keda_role" {
   namespace       = "keda"
   service_account = "keda-operator"
   policy_json     = data.aws_iam_policy_document.keda.json
+}
+
+# --- AWS Load Balancer Controller: turns Ingresses into ALBs --------------------
+
+# The project's official policy for the exact controller version installed
+# (v3.6.3, downloaded from its release tag; reviewed when committed)
+# (deploy/apps/aws-load-balancer-controller.yaml). Upgrading the controller
+# means downloading that version's policy in the same PR.
+module "aws_load_balancer_controller_role" {
+  source = "../modules/workload-role"
+
+  name            = "${var.project}-aws-load-balancer-controller"
+  cluster_name    = module.eks.cluster_name
+  cluster_arn     = module.eks.cluster_arn
+  namespace       = "kube-system"
+  service_account = "aws-load-balancer-controller"
+  policy_json     = file("${path.module}/policies/aws-load-balancer-controller.json")
 }

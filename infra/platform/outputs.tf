@@ -53,9 +53,10 @@ output "workload_role_arns" {
   value = merge(
     { for name, r in module.pipeline_role : name => r.role_arn },
     {
-      ui               = module.ui_role.role_arn
-      external-secrets = module.external_secrets_role.role_arn
-      keda-operator    = module.keda_role.role_arn
+      ui                           = module.ui_role.role_arn
+      external-secrets             = module.external_secrets_role.role_arn
+      keda-operator                = module.keda_role.role_arn
+      aws-load-balancer-controller = module.aws_load_balancer_controller_role.role_arn
     },
   )
 }
