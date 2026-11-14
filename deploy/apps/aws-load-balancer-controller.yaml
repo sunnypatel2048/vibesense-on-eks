@@ -1,0 +1,34 @@
+# Turns Ingresses into ALBs. Its IAM role (Terraform) uses the official policy for
+# this exact version: infra/platform/policies/aws-load-balancer-controller.json.
+# Upgrade both together.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: aws-load-balancer-controller
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  sources:
+    - repoURL: https://aws.github.io/eks-charts
+      chart: aws-load-balancer-controller
+      targetRevision: 3.6.3 # controller v3.6.3; matches the IAM policy file
+      helm:
+        valueFiles:
+          - $values/deploy/platform/aws-load-balancer-controller-values.yaml
+    - repoURL: https://github.com/sunnypatel2048/vibesense-on-eks.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

@@ -1,0 +1,28 @@
+# Helm values for the AWS Load Balancer Controller
+# (deploy/apps/aws-load-balancer-controller.yaml). Turns Ingresses into ALBs.
+
+clusterName: vibesense
+region: us-east-1
+
+# The VPC ID changes on every `make up`, so the VPC is found by tags that don't.
+# All tags must match (controller v3). The alternative, discovery through the
+# node metadata service, would require letting every pod reach the node's IAM
+# credentials.
+vpcTags:
+  Name: vibesense
+  Project: vibesense
+
+serviceAccount:
+  create: true
+  name: aws-load-balancer-controller # matches the Pod Identity association (Terraform)
+
+# Its admission webhook is called whenever Ingresses/Services are created; with
+# it down, those creations fail. Two replicas across the two system nodes.
+replicaCount: 2
+
+# We only use Ingress. Otherwise the controller takes over every Service of
+# type LoadBalancer in the cluster.
+enableServiceMutatorWebhook: false
+
+nodeSelector:
+  vibesense/node-role: system
