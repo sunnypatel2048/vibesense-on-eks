@@ -1,0 +1,56 @@
+{{- if .Values.migration.enabled }}
+{{- /*
+alembic upgrade head before any pod starts (they refuse to run on an old
+schema; src/common/db.py). An Argo CD Sync hook in wave 0, not a PreSync hook:
+PreSync runs before the wave -1 ExternalSecrets exist, so on a fresh cluster the
+Job would wait forever for its DB_URL Secret. As a hook it's recreated on every
+sync (a Job's pod template can't be changed in place), and a failed migration
+fails the sync, so new pods never roll out on a schema they can't use.
+*/ -}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: migrate
+  labels:
+    {{- include "vibesense.labels" . | nindent 4 }}
+automountServiceAccountToken: false # needs no Kubernetes or AWS API access
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrate
+  labels:
+    {{- include "vibesense.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/hook: Sync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation # keep the last run's logs
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  backoffLimit: 2
+  activeDeadlineSeconds: 300
+  template:
+    metadata:
+      labels:
+        {{- include "vibesense.selectorLabels" (dict "component" "migrate") | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      serviceAccountName: migrate
+      securityContext:
+        {{- include "vibesense.podSecurityContext" . | nindent 8 }}
+      containers:
+        - name: migrate
+          image: {{ include "vibesense.image" (dict "root" $ "image" "app") }}
+          command: ["alembic", "upgrade", "head"]
+          env:
+            {{- include "vibesense.env" (dict "root" $ "secretEnv" (list "DB_URL")) | nindent 12 }}
+          resources:
+            {{- toYaml .Values.migration.resources | nindent 12 }}
+          securityContext:
+            {{- include "vibesense.containerSecurityContext" . | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+{{- end }}
