@@ -1,0 +1,22 @@
+# Helm values for cert-manager (deploy/apps/cert-manager.yaml).
+
+crds:
+  enabled: true # the chart installs and upgrades its CRDs
+
+# Platform component: stable system nodes only.
+nodeSelector:
+  vibesense/node-role: system
+
+webhook:
+  nodeSelector:
+    vibesense/node-role: system
+
+cainjector:
+  nodeSelector:
+    vibesense/node-role: system
+
+# A Helm post-install Job that waits for the API to answer. Argo CD's sync
+# waves already wait for these Deployments to be Healthy before wave 1, so it
+# would only add a pod and a hook.
+startupapicheck:
+  enabled: false

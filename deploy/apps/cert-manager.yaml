@@ -1,0 +1,48 @@
+# cert-manager issues certificates inside the cluster at runtime. The AWS Load
+# Balancer Controller uses it for its admission webhook's certificate (see
+# deploy/apps/aws-load-balancer-controller.yaml for why).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cert-manager
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  sources:
+    - repoURL: https://charts.jetstack.io
+      chart: cert-manager
+      targetRevision: v1.21.3 # exact; bump deliberately
+      helm:
+        valueFiles:
+          - $values/deploy/platform/cert-manager-values.yaml
+    - repoURL: https://github.com/sunnypatel2048/vibesense-on-eks.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: cert-manager
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - RespectIgnoreDifferences=true
+  # cert-manager's cainjector fills in its own webhook's CA at runtime, after
+  # Argo CD applies the webhook configuration. Don't treat that as drift.
+  ignoreDifferences:
+    - group: admissionregistration.k8s.io
+      kind: ValidatingWebhookConfiguration
+      name: cert-manager-webhook
+      jqPathExpressions:
+        - .webhooks[]?.clientConfig.caBundle
+    - group: admissionregistration.k8s.io
+      kind: MutatingWebhookConfiguration
+      name: cert-manager-webhook
+      jqPathExpressions:
+        - .webhooks[]?.clientConfig.caBundle
