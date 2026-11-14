@@ -32,3 +32,27 @@ spec:
     syncOptions:
       - CreateNamespace=true
       - ServerSideApply=true
+      - RespectIgnoreDifferences=true # apply ignoreDifferences to syncs, not just diffs
+  # Without cert-manager, the chart generates a new self-signed CA and webhook
+  # certificate on every render, and Argo CD re-renders on every refresh. The
+  # webhooks' caBundle then keeps changing while the controller still serves the
+  # old certificate, and Kubernetes rejects Ingresses ("x509: certificate signed
+  # by unknown authority"). Create them once, then leave them alone.
+  # Production alternative: cert-manager with enableCertManager: true.
+  ignoreDifferences:
+    - group: admissionregistration.k8s.io
+      kind: MutatingWebhookConfiguration
+      name: aws-load-balancer-webhook
+      jqPathExpressions:
+        - .webhooks[].clientConfig.caBundle
+    - group: admissionregistration.k8s.io
+      kind: ValidatingWebhookConfiguration
+      name: aws-load-balancer-webhook
+      jqPathExpressions:
+        - .webhooks[].clientConfig.caBundle
+    - group: ""
+      kind: Secret
+      name: aws-load-balancer-tls
+      namespace: kube-system
+      jsonPointers:
+        - /data
