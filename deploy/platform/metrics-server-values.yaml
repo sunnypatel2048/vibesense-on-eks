@@ -1,0 +1,5 @@
+# Helm values for metrics-server (deploy/apps/metrics-server.yaml).
+# Per-pod and per-node CPU/memory for `kubectl top` and CPU-based autoscaling.
+
+nodeSelector:
+  vibesense/node-role: system
