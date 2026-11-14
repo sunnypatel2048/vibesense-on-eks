@@ -1,0 +1,25 @@
+# Cluster-wide objects whose types are installed by wave-0 add-ons
+# (ClusterSecretStores now; Karpenter NodePools later).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cluster-config
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/sunnypatel2048/vibesense-on-eks.git
+    targetRevision: main
+    path: deploy/cluster-config
+  destination:
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true
