@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 from src.common.config import NotificationSettings, SmtpSettings, get_settings
 from src.common.db import create_session_factory
 from src.common.logs import configure_logging
+from src.common.metrics import END_TO_END_SECONDS
 from src.common.worker import run_worker
 from src.models import Aggregate, IntervalResultDB, MonitoringJobDB, interval_time
 
@@ -134,6 +135,14 @@ def smtp_sender(settings: SmtpSettings) -> EmailSender:
     return send
 
 
+def record_end_to_end(payload: dict[str, Any]) -> None:
+    """Observe how long this interval took from entering the pipeline to now.
+    Called once per interval, when it completes; not for redeliveries."""
+    if enqueued := payload.get("enqueued_at"):  # absent on messages from before Task 9.4
+        seconds = (datetime.now(UTC) - datetime.fromisoformat(enqueued)).total_seconds()
+        END_TO_END_SECONDS.observe(max(seconds, 0.0))
+
+
 def handle_notification(
     payload: dict[str, Any],
     *,
@@ -171,6 +180,7 @@ def handle_notification(
             # and hurt the sending account's reputation).
             interval.notified_at = datetime.now(UTC).replace(tzinfo=None)
             db.commit()
+            record_end_to_end(payload)
             log.info("email_suppressed", domain=domain)
             return
 
@@ -190,6 +200,7 @@ def handle_notification(
         send(msg)
         interval.notified_at = datetime.now(UTC).replace(tzinfo=None)
         db.commit()
+        record_end_to_end(payload)
 
     log.info("email_sent")
 

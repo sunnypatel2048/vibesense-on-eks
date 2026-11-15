@@ -29,3 +29,11 @@ PUBLISHED = Counter(
     "Messages sent, by destination queue.",
     ["queue"],
 )
+
+END_TO_END_SECONDS = Histogram(
+    "vibesense_end_to_end_seconds",
+    "From comments entering the pipeline (enqueued_at, set by ingestion or the load "
+    "generator) to the interval being notified. The SLO's measurement (Task 9.4).",
+    # 300 s is the SLO target, so it must be a bucket boundary exactly.
+    buckets=(1, 2, 5, 10, 15, 30, 60, 90, 120, 180, 240, 300, 450, 600, 900, 1800),
+)

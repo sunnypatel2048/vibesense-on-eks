@@ -1,0 +1,43 @@
+# The pipeline's service level objective (Task 9.4).
+#
+#   95% of intervals are notified within 5 minutes of their comments entering
+#   the pipeline.
+#
+# Why 5 minutes: the AI worker scales from zero to save money, and a cold start
+# (Karpenter node + image pull + model load) measured 87 s, before the backlog
+# that built up meanwhile is worked off. The target leaves room for that; a
+# tighter one would mean keeping a warm AI pod and node, which costs money.
+# A business would pick the target first and pay for the capacity it needs.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: vibesense-slo
+  namespace: monitoring
+spec:
+  groups:
+    - name: vibesense-slo
+      rules:
+        # p95 end-to-end latency over the last 10 minutes.
+        - record: vibesense:end_to_end_seconds:p95_10m
+          expr: histogram_quantile(0.95, sum by (le) (rate(vibesense_end_to_end_seconds_bucket[10m])))
+
+        # The SLI: share of intervals that met the target over the last 30 minutes.
+        # le="300.0" is how the Python client writes the 300 s bucket boundary.
+        - record: vibesense:end_to_end_within_slo:ratio_30m
+          expr: |
+            sum(rate(vibesense_end_to_end_seconds_bucket{le="300.0"}[30m]))
+              /
+            sum(rate(vibesense_end_to_end_seconds_count[30m]))
+
+        - alert: VibeSenseLatencySLOBreached
+          expr: vibesense:end_to_end_seconds:p95_10m > 300
+          for: 10m # a short load spike shouldn't page; a sustained breach should
+          labels:
+            severity: critical
+            team: vibesense # routed to email (alertmanager-config.yaml)
+          annotations:
+            summary: "VibeSense: 95th percentile end-to-end latency above 5 minutes"
+            description: >-
+              p95 latency from comments entering the pipeline to the interval being
+              notified has been {{ $value | humanizeDuration }} for 10 minutes (target: 5 minutes).
+              Check the analysis queue depth and AI pods on the VibeSense pipeline dashboard.

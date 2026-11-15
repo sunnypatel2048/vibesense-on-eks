@@ -76,6 +76,9 @@ def handle_ingest(
                 "job_id": job_id,
                 "interval_timestamp": newest["published_at"],
                 "comments": [clean(c["text"]) for c in new_comments],
+                # Start of the end-to-end latency the SLO measures. Every later
+                # stage passes it along untouched (it's message metadata).
+                "enqueued_at": datetime.now(UTC).isoformat(),
             },
         )
         job.last_fetched_at = parse_published_at(newest["published_at"]).astimezone(UTC).replace(tzinfo=None)

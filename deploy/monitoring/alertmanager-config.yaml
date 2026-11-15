@@ -1,0 +1,44 @@
+# Alertmanager's routing, built by External Secrets because it needs the SNS
+# topic ARN (Parameter Store: /vibesense/platform/alerts_topic_arn).
+#
+# Only this project's own alerts (label team=vibesense, in slo-rules.yaml) are
+# emailed. kube-prometheus-stack's many built-in Kubernetes alerts go nowhere:
+# useful in its UI, noise in an inbox for a demo cluster.
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: alertmanager-config
+  namespace: monitoring
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: aws-parameter-store
+  target:
+    name: alertmanager-config
+    template:
+      engineVersion: v2
+      data:
+        alertmanager.yaml: |
+          route:
+            receiver: "null"
+            group_by: [alertname]
+            routes:
+              - receiver: email
+                matchers: ['team="vibesense"']
+                group_wait: 30s
+                group_interval: 5m
+                repeat_interval: 4h
+          receivers:
+            - name: "null"
+            - name: email
+              sns_configs:
+                - topic_arn: "{{ .topic_arn }}"
+                  sigv4:
+                    region: us-east-1 # credentials from Alertmanager's Pod Identity role
+                  subject: "VibeSense alert"
+                  send_resolved: true
+  data:
+    - secretKey: topic_arn
+      remoteRef:
+        key: /vibesense/platform/alerts_topic_arn

@@ -110,6 +110,8 @@ def test_new_comments_are_published_and_progress_is_saved(session_factory, job, 
     assert seen == [("vid123", None)]
     [(queue, payload)] = published.calls
     assert queue == "analysis"
+    enqueued_at = datetime.fromisoformat(payload.pop("enqueued_at"))
+    assert abs((datetime.now(UTC) - enqueued_at).total_seconds()) < 60
     assert payload == {
         "job_id": job["job_id"],
         "interval_timestamp": "2026-10-29T13:30:00Z",
