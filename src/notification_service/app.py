@@ -140,6 +140,7 @@ def handle_notification(
     session_factory: SessionFactory,
     send: EmailSender,
     from_email: str,
+    suppress_domains: frozenset[str] = frozenset(),
 ) -> None:
     aggregate = Aggregate(**payload["aggregate"])
     job_id = payload["job_id"]
@@ -161,6 +162,16 @@ def handle_notification(
             raise ValueError(f"interval {payload['interval_timestamp']} not found for job {job_id}")
         if interval.notified_at is not None:
             log.info("already_notified")
+            return
+
+        domain = job.email.rsplit("@", 1)[-1].lower()
+        if domain in suppress_domains:
+            # Load-test jobs: the interval completes like any other, but no
+            # email leaves (hundreds of messages to example.com would bounce
+            # and hurt the sending account's reputation).
+            interval.notified_at = datetime.now(UTC).replace(tzinfo=None)
+            db.commit()
+            log.info("email_suppressed", domain=domain)
             return
 
         msg = build_email(
@@ -192,6 +203,7 @@ def main() -> None:
         session_factory=create_session_factory(settings),
         send=smtp_sender(settings),
         from_email=settings.from_email,
+        suppress_domains=settings.suppressed_domains,
     )
     run_worker(settings.notification_queue, handler, port=settings.metrics_port, max_busy_seconds=60)
 

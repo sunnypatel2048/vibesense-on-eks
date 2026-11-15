@@ -3,6 +3,7 @@ from uuid import UUID, uuid4
 
 import pytest
 
+from src.common.config import NotificationSettings
 from src.models import IntervalResultDB, MonitoringJobDB, interval_time
 from src.notification_service.app import confidence_label, handle_notification, sentiment_label
 
@@ -125,3 +126,29 @@ def test_handler_fails_for_an_unknown_job(session_factory):
 def test_handler_fails_when_the_interval_is_missing(session_factory, job):
     with pytest.raises(ValueError, match="interval"):
         notify(session_factory, job["job_id"], lambda msg: None)
+
+
+def test_suppressed_domains_are_logged_not_emailed(session_factory, job):
+    add_interval(session_factory, job["job_id"])
+    sent = []
+    handle_notification(
+        {"job_id": job["job_id"], "interval_timestamp": TIMESTAMP, "aggregate": AGGREGATE},
+        session_factory=session_factory,
+        send=sent.append,
+        from_email="bot@example.com",
+        suppress_domains=frozenset({"example.com"}),
+    )
+    assert sent == []
+    # The interval still completes, so a redelivery doesn't retry it.
+    assert notified_at(session_factory, job["job_id"]) is not None
+
+
+def test_suppress_email_domains_parsing():
+    settings = NotificationSettings(
+        db_url="sqlite://",
+        smtp_server="smtp.example.com",
+        smtp_user="bot@example.com",
+        smtp_pass="x",
+        suppress_email_domains=" Example.com, test.invalid ,",
+    )
+    assert settings.suppressed_domains == frozenset({"example.com", "test.invalid"})

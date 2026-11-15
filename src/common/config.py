@@ -129,11 +129,22 @@ class AggregationSettings(DatabaseSettings, QueueSettings, WorkerSettings):
 
 
 class NotificationSettings(DatabaseSettings, SmtpSettings, QueueSettings, WorkerSettings):
-    pass
+    # Comma-separated domains whose jobs are logged instead of emailed, e.g.
+    # "example.com" for load tests (src/load_test.py). Empty: email everyone.
+    suppress_email_domains: str = ""  # SUPPRESS_EMAIL_DOMAINS
+
+    @property
+    def suppressed_domains(self) -> frozenset[str]:
+        return frozenset(d.strip().lower() for d in self.suppress_email_domains.split(",") if d.strip())
 
 
 # Development only: the stand-in for EventBridge Scheduler.
 class LocalSchedulerSettings(DatabaseSettings, QueueSettings):
+    pass
+
+
+# The load generator (src/load_test.py): inserts jobs, sends analysis messages.
+class LoadTestSettings(DatabaseSettings, QueueSettings):
     pass
 
 

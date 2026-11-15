@@ -24,6 +24,7 @@ x-env: &env
   SMTP_USER: vibesense@localhost
   SMTP_PASS: local
   SMTP_STARTTLS: "false"
+  SUPPRESS_EMAIL_DOMAINS: example.com   # load-test jobs: docker compose run --rm ingestion python -m src.load_test --jobs 3 --messages 30
   DEMO_MODE: "true"
   LOG_FORMAT: console     # json is what EKS uses; console is easier to read here
 
