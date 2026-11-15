@@ -11,7 +11,7 @@ relies on the Application health check in `deploy/platform/argocd-values.yaml`).
 | Wave | Applications | Why this order |
 | --- | --- | --- |
 | -1 | repositories (`repositories.yaml`), prometheus-operator-crds | Before any app needs them: where OCI charts live; the ServiceMonitor/PodMonitor types KEDA and Karpenter create |
-| 0 | metrics-server, cert-manager, external-secrets, keda | Controllers and CRDs everything else depends on |
+| 0 | metrics-server, cert-manager, external-secrets, keda, fluent-bit | Controllers and CRDs everything else depends on |
 | 1 | aws-load-balancer-controller, karpenter | Need cert-manager's CRDs (load balancer controller); Karpenter after the core controllers |
 | 2 | cluster-config (`deploy/cluster-config/`), monitoring (kube-prometheus-stack + `deploy/monitoring/`) | Objects whose types waves 0–1 install: ClusterSecretStores, NodePool, EC2NodeClass, cert-manager Certificates |
 | 3 | vibesense (an ApplicationSet) | Uses ExternalSecrets, an Ingress (ALB), KEDA ScaledObjects and PodMonitors |

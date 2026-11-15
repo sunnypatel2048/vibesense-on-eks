@@ -1,0 +1,33 @@
+# Fluent Bit: a small DaemonSet that ships the vibesense namespace's container
+# logs to CloudWatch Logs. Log group and IAM role: infra/platform/logging.tf.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: fluent-bit
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  sources:
+    - repoURL: https://fluent.github.io/helm-charts
+      chart: fluent-bit
+      targetRevision: 0.58.3 # exact (Fluent Bit 5.1.3); bump deliberately
+      helm:
+        valueFiles:
+          - $values/deploy/platform/fluent-bit-values.yaml
+    - repoURL: https://github.com/sunnypatel2048/vibesense-on-eks.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: logging # the Pod Identity association is for logging/fluent-bit
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

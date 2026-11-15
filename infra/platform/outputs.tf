@@ -58,6 +58,7 @@ output "workload_role_arns" {
       keda-operator                = module.keda_role.role_arn
       aws-load-balancer-controller = module.aws_load_balancer_controller_role.role_arn
       alertmanager                 = module.alertmanager_role.role_arn
+      fluent-bit                   = module.fluent_bit_role.role_arn
     },
   )
 }
