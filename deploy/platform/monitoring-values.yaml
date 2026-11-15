@@ -1,0 +1,89 @@
+# Helm values for kube-prometheus-stack (deploy/apps/monitoring.yaml).
+#
+# Sized for a demo cluster that's destroyed after every session: no persistent
+# volumes (nothing to clean up on `make down`), 6 hours of metrics, everything
+# on the system nodes. Dashboards and alert rules live in Git, so losing the
+# data loses nothing that can't be rebuilt.
+
+# EKS runs these control-plane components itself; their metrics endpoints
+# aren't reachable from inside the cluster, so scraping them only produces
+# failed targets and firing alerts.
+kubeEtcd:
+  enabled: false
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeProxy:
+  enabled: false
+
+prometheusOperator:
+  nodeSelector:
+    vibesense/node-role: system
+  # The webhook that validates PrometheusRules gets its certificate from
+  # cert-manager (issued at runtime), not from a certgen Job that patches it in.
+  admissionWebhooks:
+    certManager:
+      enabled: true
+
+prometheus:
+  prometheusSpec:
+    nodeSelector:
+      vibesense/node-role: system
+    retention: 6h
+    retentionSize: 3GB
+    storageSpec:
+      emptyDir:
+        sizeLimit: 4Gi
+    resources:
+      requests:
+        cpu: 200m
+        memory: 768Mi
+      limits:
+        memory: 1536Mi
+    # Pick up every PodMonitor, ServiceMonitor and PrometheusRule in the cluster,
+    # not only those labelled for this Helm release (the chart's default).
+    podMonitorSelectorNilUsesHelmValues: false
+    serviceMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+
+alertmanager:
+  alertmanagerSpec:
+    nodeSelector:
+      vibesense/node-role: system
+    resources:
+      requests:
+        cpu: 20m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+
+grafana:
+  nodeSelector:
+    vibesense/node-role: system
+  # Admin login from a Secret written by External Secrets
+  # (deploy/monitoring/grafana-admin.yaml), never from values in Git.
+  admin:
+    existingSecret: grafana-admin
+    userKey: admin-user
+    passwordKey: admin-password
+  persistence:
+    enabled: false # dashboards come from Git (sidecar below)
+  service:
+    type: ClusterIP # port-forward only: make grafana
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard
+      labelValue: "1"
+      searchNamespace: ALL
+  resources:
+    requests:
+      cpu: 100m
+      memory: 192Mi
+    limits:
+      memory: 384Mi
+
+kube-state-metrics:
+  nodeSelector:
+    vibesense/node-role: system

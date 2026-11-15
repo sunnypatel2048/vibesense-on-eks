@@ -58,3 +58,17 @@ for i in "${!names[@]}"; do
   echo "  stored  $name"
   unset value
 done
+
+# Grafana's admin password: generated here, never typed or chosen. Created once;
+# delete the parameter to get a new one. Read it with `make grafana`.
+grafana="$PREFIX/grafana_admin_password"
+existing="$(aws ssm describe-parameters --region "$REGION" --parameter-filters "Key=Name,Values=$grafana" --query 'length(Parameters)' --output text)"
+if [[ "$existing" == "0" ]]; then
+  openssl rand -base64 24 | tr -d '\n' >"$tmp"
+  aws ssm put-parameter --region "$REGION" --name "$grafana" --type SecureString --value "file://$tmp" \
+    --tags Key=Project,Value=vibesense Key=ManagedBy,Value=scripts/put-secrets.sh >/dev/null
+  : >"$tmp"
+  echo "  generated $grafana"
+else
+  echo "  kept    $grafana (already exists)"
+fi

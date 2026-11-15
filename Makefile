@@ -12,7 +12,7 @@ TORCH_CPU = --extra-index-url https://download.pytorch.org/whl/cpu --emit-index-
 LOCK_ARGS ?=
 IMAGE_PLATFORM = --python-platform aarch64-unknown-linux-gnu
 
-.PHONY: lock lint test images push ruleset load load-clean drill secrets secrets-check lint-infra lint-chart argocd dev-up dev-down dev-reset dev-logs
+.PHONY: lock lint test images push ruleset load load-clean drill grafana secrets secrets-check lint-infra lint-chart argocd dev-up dev-down dev-reset dev-logs
 
 lock:
 	$(LOCK) $(TORCH_CPU) --universal requirements/dev.in -o requirements/dev.txt
@@ -68,6 +68,11 @@ secrets:
 
 secrets-check:
 	scripts/put-secrets.sh --check
+
+# Grafana: the admin password, then a port-forward (Ctrl-C to stop).
+grafana:
+	@echo "Grafana: http://localhost:3000  user: admin  password: $$(kubectl -n monitoring get secret grafana-admin -o jsonpath='{.data.admin-password}' | base64 -d)"
+	kubectl -n monitoring port-forward svc/monitoring-grafana 3000:80
 
 # Install Argo CD and apply the root app (after `terraform apply` + kubeconfig).
 argocd:
