@@ -12,12 +12,15 @@ TORCH_CPU = --extra-index-url https://download.pytorch.org/whl/cpu --emit-index-
 LOCK_ARGS ?=
 IMAGE_PLATFORM = --python-platform aarch64-unknown-linux-gnu
 
-.PHONY: lock test images push secrets secrets-check lint-infra lint-chart argocd dev-up dev-down dev-reset dev-logs
+.PHONY: lock lint test images push secrets secrets-check lint-infra lint-chart argocd dev-up dev-down dev-reset dev-logs
 
 lock:
 	$(LOCK) $(TORCH_CPU) --universal requirements/dev.in -o requirements/dev.txt
 	$(LOCK) --index-strategy unsafe-best-match $(IMAGE_PLATFORM) -c requirements/dev.txt requirements/app.in -o requirements/app.txt
 	$(LOCK) $(TORCH_CPU) $(IMAGE_PLATFORM) -c requirements/dev.txt requirements/ai.in -o requirements/ai.txt
+
+lint:
+	ruff check .
 
 test:
 	python -m pytest -q

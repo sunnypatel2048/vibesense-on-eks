@@ -1,4 +1,5 @@
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import parse_qs, urlparse
+
 
 def parse_youtube_video_id(url: str) -> str:
     """
@@ -27,4 +28,4 @@ def parse_youtube_video_id(url: str) -> str:
             raise ValueError("Unsupported YouTube URL format")
     
     except Exception as e:
-        raise ValueError(f"Invalid YouTube URL: {e}")
+        raise ValueError(f"Invalid YouTube URL: {e}") from e

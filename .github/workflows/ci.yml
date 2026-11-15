@@ -1,0 +1,98 @@
+# Checks on every pull request to main. Nothing here touches AWS: no
+# credentials, no OIDC token (permissions below), so it's safe on any PR.
+#
+# Never switch the trigger to pull_request_target: that runs a PR's code with
+# this repository's permissions and secrets (docs/security.md).
+#
+# Actions are pinned to commit SHAs, because a tag can be moved to malicious
+# code (as in the 2025 tj-actions/changed-files compromise). Dependabot keeps
+# the pins up to date (.github/dependabot.yml).
+name: ci
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true # a new push to the PR supersedes the old run
+
+jobs:
+  python:
+    name: lint and test
+    runs-on: ubuntu-24.04
+    env:
+      # Same index rules as `make lock`: torch's +cpu build is only on PyTorch's
+      # index, everything else is the best version across both (docs/security.md).
+      UV_INDEX_STRATEGY: unsafe-best-match
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          python-version: "3.12"
+          activate-environment: true # a venv on PATH for the steps below
+          enable-cache: true
+          cache-dependency-glob: requirements/dev.txt
+      - name: Install the locked dev dependencies
+        run: uv pip install -r requirements/dev.txt
+      - name: Lint
+        run: ruff check .
+      - name: Test
+        run: python -m pytest -q # moto and botocore stubs stand in for AWS
+
+  chart:
+    name: helm chart
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e # v5.1.0
+      - name: Lint and render with placeholder values
+        run: make lint-chart
+
+  images:
+    name: image (${{ matrix.target }})
+    # Native arm64, like the Graviton nodes: no slow emulation. Free for
+    # public repositories.
+    runs-on: ubuntu-24.04-arm
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [app, ai]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build (not pushed)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          target: ${{ matrix.target }}
+          platforms: linux/arm64
+          tags: vibesense-${{ matrix.target }}:ci
+          load: true # into the runner's Docker, for the scan below
+          provenance: false # same as `make images` (infra/bootstrap/ecr.tf)
+          sbom: false
+          cache-from: type=gha,scope=${{ matrix.target }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.target }}
+
+      # The policy in docs/security.md: fail on any HIGH or CRITICAL finding
+      # that has a fix. Accepted no-fix findings are documented there.
+      - name: Scan for fixable HIGH and CRITICAL vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: vibesense-${{ matrix.target }}:ci
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+
+      # ML dependency changes must not change the model's answers
+      # (scripts/sentiment_golden.py). No network: tests the image as deployed.
+      - name: Golden check of the model's output
+        if: matrix.target == 'ai'
+        run: >-
+          docker run --rm --network none
+          -v "$PWD/scripts:/app/scripts:ro"
+          -v "$PWD/tests/fixtures:/app/tests/fixtures:ro"
+          vibesense-ai:ci python -m scripts.sentiment_golden --check

@@ -1,9 +1,10 @@
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from types import SimpleNamespace
 
 import boto3
 import pytest
+from botocore.exceptions import ClientError
 from botocore.stub import Stubber
 from pydantic import ValidationError
 
@@ -66,7 +67,7 @@ def test_create_sends_a_self_deleting_schedule_targeting_the_ingest_queue(schedu
             "Name": f"job-{JOB.job_id}",
             "GroupName": "vibesense",
             "ScheduleExpression": "rate(4 hours)",
-            "EndDate": datetime(2026, 10, 30, 12, 0, tzinfo=timezone.utc),
+            "EndDate": datetime(2026, 10, 30, 12, 0, tzinfo=UTC),
             "ActionAfterCompletion": "DELETE",
             "FlexibleTimeWindow": {"Mode": "OFF"},
             "State": "ENABLED",
@@ -100,7 +101,7 @@ def test_delete_ignores_a_schedule_that_is_already_gone(scheduler):
 def test_other_errors_are_raised(scheduler):
     eventbridge, stub = scheduler
     stub.add_client_error("create_schedule", service_error_code="AccessDeniedException")
-    with pytest.raises(Exception):
+    with pytest.raises(ClientError, match="AccessDeniedException"):
         eventbridge.create_job_schedule(JOB)
 
 

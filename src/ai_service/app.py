@@ -5,15 +5,16 @@ Writes: aggregation queue  {job_id, interval_timestamp, results: [AnalysisOutput
 
 Run with: python -m src.ai_service.app
 """
+from collections.abc import Callable, Sequence
 from functools import lru_cache, partial
-from typing import Any, Callable, Sequence
+from typing import Any
 
 import structlog
 
 from src.common.config import AiSettings, get_settings
+from src.common.logs import configure_logging
 from src.common.queue import publish
 from src.common.worker import run_worker
-from src.common.logs import configure_logging
 from src.models import AnalysisOutput
 
 logger = structlog.get_logger()

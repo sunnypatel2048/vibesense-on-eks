@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 import pytest
@@ -67,7 +67,7 @@ def test_fetch_stops_at_the_first_already_seen_comment(youtube):
         [thread("new", "2026-10-29T12:00:00Z"), thread("old", "2026-10-29T09:00:00Z")],
         [thread("older", "2026-10-28T09:00:00Z")],
     ])
-    since = datetime(2026, 10, 29, 10, 0, tzinfo=timezone.utc)
+    since = datetime(2026, 10, 29, 10, 0, tzinfo=UTC)
     assert [c["comment_id"] for c in fetch_comments("vid", since)] == ["new"]
     assert len(fake.requests) == 1  # second page never requested
 
@@ -123,12 +123,12 @@ def test_second_run_skips_comments_already_seen(session_factory, job, published)
     second_run = ingest(session_factory, job, published, COMMENTS)
 
     # The fetcher is told where the first run left off...
-    assert second_run == [("vid123", datetime(2026, 10, 29, 13, 30, tzinfo=timezone.utc))]
+    assert second_run == [("vid123", datetime(2026, 10, 29, 13, 30, tzinfo=UTC))]
     assert len(published.calls) == 1  # nothing new the second time
 
 
 def test_expired_job_is_skipped(session_factory, job, published):
-    ingest(session_factory, job, published, COMMENTS, now=datetime.now(timezone.utc) + timedelta(days=2))
+    ingest(session_factory, job, published, COMMENTS, now=datetime.now(UTC) + timedelta(days=2))
     assert published.calls == []
 
 

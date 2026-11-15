@@ -1,0 +1,15 @@
+# Tool settings. Dependencies live in requirements/ (uv lock files), not here.
+
+[tool.ruff]
+target-version = "py312" # the images' Python
+line-length = 120
+# Migrations are history: once applied somewhere, they're never edited.
+extend-exclude = ["alembic/versions"]
+
+[tool.ruff.lint]
+# pycodestyle, pyflakes, import order, bugbear (likely bugs), pyupgrade.
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+# The email's inline-styled HTML template.
+"src/notification_service/app.py" = ["E501"]

@@ -2,9 +2,10 @@
 sequence. Kept free of Streamlit so it can be unit-tested."""
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Any, Callable
+from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID, uuid4
 
 import structlog
@@ -129,7 +130,7 @@ def create_job(
     schedule. If only the immediate kick-off fails, the job still stands and its
     first report simply arrives after one interval.
     """
-    now = now or datetime.now(timezone.utc)
+    now = now or datetime.now(UTC)
 
     with session_factory() as db:
         job = MonitoringJobDB(
@@ -140,7 +141,7 @@ def create_job(
             email=request.email,
             intervals_seconds=plan.interval_seconds,
             total_duration_seconds=plan.total_seconds,
-            created_at=now.astimezone(timezone.utc).replace(tzinfo=None),  # naive UTC, like the rest
+            created_at=now.astimezone(UTC).replace(tzinfo=None),  # naive UTC, like the rest
             last_fetched_at=None,
             is_scheduled=False,
         )

@@ -1,8 +1,8 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import uuid4
 
 from pydantic import BaseModel
-from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, JSON, String, UniqueConstraint, Uuid
+from sqlalchemy import JSON, Boolean, Column, DateTime, Float, ForeignKey, String, UniqueConstraint, Uuid
 from sqlalchemy.orm import declarative_base
 
 Base = declarative_base()
@@ -21,7 +21,7 @@ class MonitoringJobDB(Base):
     last_fetched_at = Column(DateTime, default=None)
     # A callable, so it runs per row. (`datetime.now(...)` without the lambda would be
     # evaluated once at import, giving every row the process start time.)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC).replace(tzinfo=None))
 
 class IntervalResultDB(Base):
     __tablename__ = "interval_results"
@@ -44,7 +44,7 @@ def interval_time(value: str) -> datetime:
     """Interval timestamps travel between services as ISO strings
     ('2026-10-29T13:30:00Z') and are stored as naive UTC. Aggregation and
     notification both use this so they always agree on an interval's key."""
-    return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(timezone.utc).replace(tzinfo=None)
+    return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(UTC).replace(tzinfo=None)
 
 # Messages passed between workers
 class AnalysisOutput(BaseModel):

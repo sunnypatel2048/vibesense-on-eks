@@ -18,8 +18,9 @@ import json
 import signal
 import threading
 import time
+from collections.abc import Callable, Sequence
 from functools import lru_cache
-from typing import Any, Callable, Sequence
+from typing import Any
 
 import boto3
 import structlog

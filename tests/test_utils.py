@@ -1,5 +1,7 @@
 import pytest
+
 from src.utils import parse_youtube_video_id
+
 
 def test_parse_valid_youtube_video_id():
     assert parse_youtube_video_id("https://www.youtube.com/watch?v=dQw4w9WgXcQ") == "dQw4w9WgXcQ"

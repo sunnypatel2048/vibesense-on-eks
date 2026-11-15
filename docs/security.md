@@ -73,6 +73,12 @@ credentials that expire after one hour. No access keys are stored in GitHub.
   never create cost or destroy resources.
 - Pull requests from forks receive no OIDC token. Workflows must never use
   `pull_request_target`, which runs fork code with the base repository's permissions.
+- Every third-party action is pinned to a full commit SHA, not a tag: a tag can
+  be moved to new code, which is how the 2025 `tj-actions/changed-files`
+  compromise reached thousands of repositories. Dependabot proposes updated pins
+  weekly, and each update goes through CI like any other PR.
+- `ci.yml` runs with `contents: read` only and no OIDC permission, so pull
+  request checks can't obtain AWS credentials at all.
 - `ReadOnlyAccess` is broad, because a hand-written read policy would break
   whenever Terraform manages a new resource type. Its one dangerous read, the
   app's secrets, is removed with an explicit deny (next section).
