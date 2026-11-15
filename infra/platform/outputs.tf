@@ -71,6 +71,7 @@ output "platform_config_parameters" {
 output "gitops_metadata" {
   description = "Read by scripts/bootstrap-argocd.sh; never commit."
   value = {
+    aws_account_id   = local.account_id # SQS queue URLs for KEDA
     ecr_registry     = "${local.account_id}.dkr.ecr.${var.region}.amazonaws.com"
     ui_allowed_cidrs = join(",", var.admin_cidrs)
   }

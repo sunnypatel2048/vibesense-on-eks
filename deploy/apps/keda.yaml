@@ -1,0 +1,49 @@
+# KEDA: scales the VibeSense workers on SQS queue depth (ScaledObjects in the
+# app chart). Reads queue attributes with its own Pod Identity role (Terraform:
+# sqs:GetQueueAttributes on the four queues, nothing else).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: keda
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  sources:
+    - repoURL: https://kedacore.github.io/charts
+      chart: keda
+      targetRevision: 2.21.0 # exact; bump deliberately
+      helm:
+        valueFiles:
+          - $values/deploy/platform/keda-values.yaml
+    - repoURL: https://github.com/sunnypatel2048/vibesense-on-eks.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: keda # Pod Identity association is for keda/keda-operator
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - RespectIgnoreDifferences=true
+  # KEDA's operator issues its own certificates at runtime and writes the CA
+  # into its metrics APIService and admission webhook after Argo CD applies
+  # them. Don't treat that as drift (the lesson from the load balancer
+  # controller, applied up front).
+  ignoreDifferences:
+    - group: apiregistration.k8s.io
+      kind: APIService
+      jqPathExpressions:
+        - .spec.caBundle
+        - .spec.insecureSkipTLSVerify
+    - group: admissionregistration.k8s.io
+      kind: ValidatingWebhookConfiguration
+      jqPathExpressions:
+        - .webhooks[]?.clientConfig.caBundle

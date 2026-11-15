@@ -19,7 +19,11 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-wave: "1" # after secrets (-1) and the migration (0)
 spec:
+  {{- if not $w.autoscaling }}
   replicas: {{ $w.replicas | default $d.replicas }}
+  {{- end }}
+  # With autoscaling, `replicas` is left out on purpose: KEDA owns it. If the
+  # chart set it, Argo CD's self-heal would keep resetting what KEDA scaled.
   selector:
     matchLabels:
       {{- include "vibesense.selectorLabels" (dict "component" $name) | nindent 6 }}
