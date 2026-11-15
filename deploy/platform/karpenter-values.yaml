@@ -1,0 +1,22 @@
+# Helm values for Karpenter (deploy/apps/karpenter.yaml).
+
+settings:
+  clusterName: vibesense
+  interruptionQueue: vibesense-karpenter # Terraform: module.karpenter queue_name
+
+serviceAccount:
+  name: karpenter # matches the Pod Identity association (Terraform)
+
+# On the system nodes: Karpenter must never run on a node it might remove.
+nodeSelector:
+  vibesense/node-role: system
+
+controller:
+  # The chart's defaults suit large clusters. Measured need here is far lower,
+  # and the two system nodes host everything else too.
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi

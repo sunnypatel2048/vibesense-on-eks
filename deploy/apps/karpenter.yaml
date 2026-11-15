@@ -1,0 +1,33 @@
+# Karpenter: launches right-sized Spot nodes when pods can't be scheduled, and
+# removes them when they're empty or underused. Its IAM role, node role and
+# interruption queue come from Terraform (infra/platform/karpenter.tf).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: karpenter
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  sources:
+    - repoURL: public.ecr.aws/karpenter # OCI (deploy/apps/repositories.yaml)
+      chart: karpenter
+      targetRevision: 1.15.2 # exact; check EKS version support before bumping
+      helm:
+        valueFiles:
+          - $values/deploy/platform/karpenter-values.yaml
+    - repoURL: https://github.com/sunnypatel2048/vibesense-on-eks.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system # the Pod Identity association is for kube-system/karpenter
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true

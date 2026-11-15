@@ -6,7 +6,7 @@ metadata:
   name: cluster-config
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/sync-wave: "2" # after the CRDs of external-secrets (0) and karpenter (1)
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:

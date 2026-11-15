@@ -76,3 +76,11 @@ output "gitops_metadata" {
     ui_allowed_cidrs = join(",", var.admin_cidrs)
   }
 }
+
+output "karpenter" {
+  description = "Names the Karpenter chart values and EC2NodeClass refer to (fixed, so they live in Git)."
+  value = {
+    interruption_queue = module.karpenter.queue_name
+    node_iam_role      = module.karpenter.node_iam_role_name
+  }
+}

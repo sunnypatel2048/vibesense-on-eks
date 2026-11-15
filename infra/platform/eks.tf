@@ -58,6 +58,12 @@ module "eks" {
     kube-proxy = {}
   }
 
+  # Karpenter puts the nodes it launches in the same security group as the
+  # system nodes, found by this tag (deploy/cluster-config/karpenter.yaml).
+  node_security_group_tags = {
+    "karpenter.sh/discovery" = var.project
+  }
+
   eks_managed_node_groups = {
     # Hosts Argo CD, the controllers and Karpenter. Karpenter adds burst
     # capacity in Phase 8.
