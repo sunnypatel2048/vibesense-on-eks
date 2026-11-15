@@ -12,6 +12,9 @@ locals {
     # RDS names its managed secret randomly, anew on every create. How External
     # Secrets locates it is designed in Task 5.5; published here for debugging.
     db_secret_arn = aws_db_instance.main.master_user_secret[0].secret_arn
+    # Where Alertmanager sends the SLO alert (Task 9.4): the same topic, and so
+    # the same email, as the CloudWatch DLQ alarms.
+    alerts_topic_arn = data.aws_sns_topic.alerts.arn
   }
 }
 

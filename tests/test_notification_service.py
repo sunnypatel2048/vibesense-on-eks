@@ -2,6 +2,7 @@ from datetime import datetime
 from uuid import UUID, uuid4
 
 import pytest
+from prometheus_client import REGISTRY
 
 from src.common.config import NotificationSettings
 from src.models import IntervalResultDB, MonitoringJobDB, interval_time
@@ -152,3 +153,30 @@ def test_suppress_email_domains_parsing():
         suppress_email_domains=" Example.com, test.invalid ,",
     )
     assert settings.suppressed_domains == frozenset({"example.com", "test.invalid"})
+
+
+def end_to_end_count():
+    return REGISTRY.get_sample_value("vibesense_end_to_end_seconds_count") or 0.0
+
+
+def test_end_to_end_latency_is_recorded_once_per_interval(session_factory, job):
+    add_interval(session_factory, job["job_id"])
+    payload = {
+        "job_id": job["job_id"],
+        "interval_timestamp": TIMESTAMP,
+        "aggregate": AGGREGATE,
+        "enqueued_at": "2026-10-29T10:00:00+00:00",
+    }
+    before = end_to_end_count()
+    for _ in range(2):  # the second delivery is a duplicate: already notified
+        handle_notification(
+            payload, session_factory=session_factory, send=lambda msg: None, from_email="bot@example.com"
+        )
+    assert end_to_end_count() == before + 1
+
+
+def test_messages_without_enqueued_at_are_not_measured(session_factory, job):
+    add_interval(session_factory, job["job_id"])
+    before = end_to_end_count()
+    notify(session_factory, job["job_id"], lambda msg: None)
+    assert end_to_end_count() == before

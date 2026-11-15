@@ -175,3 +175,24 @@ module "aws_load_balancer_controller_role" {
   service_account = "aws-load-balancer-controller"
   policy_json     = file("${path.module}/policies/aws-load-balancer-controller.json")
 }
+
+# --- Alertmanager (kube-prometheus-stack): the SLO alert to email via SNS -------
+
+data "aws_iam_policy_document" "alertmanager" {
+  statement {
+    sid       = "PublishAlerts"
+    actions   = ["sns:Publish"]
+    resources = [data.aws_sns_topic.alerts.arn] # this one topic only
+  }
+}
+
+module "alertmanager_role" {
+  source = "../modules/workload-role"
+
+  name            = "${var.project}-alertmanager"
+  cluster_name    = module.eks.cluster_name
+  cluster_arn     = module.eks.cluster_arn
+  namespace       = "monitoring"
+  service_account = "alertmanager" # set in deploy/platform/monitoring-values.yaml
+  policy_json     = data.aws_iam_policy_document.alertmanager.json
+}

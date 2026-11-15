@@ -53,7 +53,15 @@ prometheus:
     ruleSelectorNilUsesHelmValues: false
 
 alertmanager:
+  # A fixed name for the Pod Identity association (infra/platform/workload-roles.tf),
+  # whose role may publish to the alerts SNS topic and nothing else.
+  serviceAccount:
+    name: alertmanager
   alertmanagerSpec:
+    # The routing config comes from a Secret built by External Secrets
+    # (deploy/monitoring/alertmanager-config.yaml), because it contains the SNS
+    # topic ARN, and with it the AWS account ID, which stays out of Git.
+    configSecret: alertmanager-config
     nodeSelector:
       vibesense/node-role: system
     resources:

@@ -99,7 +99,8 @@ def send_all(queue: str, messages: list[dict[str, Any]], threads: int = 16) -> f
     """Publish every message, `threads` at a time. Returns the seconds taken."""
     began = time.monotonic()
     with ThreadPoolExecutor(max_workers=threads) as pool:
-        list(pool.map(lambda m: publish(queue, m), messages))  # list(): surface any exception
+        # enqueued_at at the moment of sending: the start of the SLO's end-to-end latency.
+        list(pool.map(lambda m: publish(queue, {**m, "enqueued_at": datetime.now(UTC).isoformat()}), messages))
     return time.monotonic() - began
 
 

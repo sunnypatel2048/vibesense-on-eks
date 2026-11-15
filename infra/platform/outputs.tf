@@ -57,6 +57,7 @@ output "workload_role_arns" {
       external-secrets             = module.external_secrets_role.role_arn
       keda-operator                = module.keda_role.role_arn
       aws-load-balancer-controller = module.aws_load_balancer_controller_role.role_arn
+      alertmanager                 = module.alertmanager_role.role_arn
     },
   )
 }
