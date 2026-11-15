@@ -177,3 +177,19 @@ jobs:
             } else {
               await github.rest.issues.createComment({ owner, repo, issue_number, body });
             }
+
+  # The one check branch protection requires from this workflow. It runs on
+  # every PR, including those that don't touch infra/: then the jobs above are
+  # skipped, which counts as passing here. (Requiring the plan jobs directly
+  # wouldn't work: a skipped matrix job reports under an unexpanded name, so
+  # the required "terraform plan (bootstrap)" would never arrive.)
+  result:
+    name: infra passed
+    needs: [changes, static, plan]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Nothing failed or was cancelled
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: jq -e 'all(.[]; .result == "success" or .result == "skipped")' <<<"$NEEDS"

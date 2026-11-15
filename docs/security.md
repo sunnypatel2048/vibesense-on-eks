@@ -95,6 +95,11 @@ credentials that expire after one hour. No access keys are stored in GitHub.
   be moved to new code, which is how the 2025 `tj-actions/changed-files`
   compromise reached thousands of repositories. Dependabot proposes updated pins
   weekly, and each update goes through CI like any other PR.
+- `main` is protected by a repository ruleset kept in Git
+  (`.github/rulesets/main.json`, applied with `make ruleset`): changes arrive
+  only through pull requests, the `ci passed` and `infra passed` checks must
+  succeed and must come from GitHub Actions itself, and force pushes and
+  deletion are blocked. The only bypass is deploy keys.
 - `release.yml` commits each new image tag to `values.yaml` with a **deploy
   key** (write access to this repository only), because branch protection
   blocks every other direct push to `main`. The key is a secret of the
