@@ -7,3 +7,13 @@
 # thing that scales workloads never runs on the nodes it causes to be added.
 nodeSelector:
   vibesense/node-role: system
+
+# Metrics for Prometheus (kube-prometheus-stack). The operator exports the
+# value each scaler reads, keda_scaler_metrics_value: for the SQS triggers
+# that's each queue's depth (visible + in flight), so queue depth reaches
+# Grafana without a CloudWatch exporter.
+prometheus:
+  operator:
+    enabled: true
+    podMonitor:
+      enabled: true

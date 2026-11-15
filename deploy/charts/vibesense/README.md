@@ -11,7 +11,7 @@ namespace. Argo CD installs it through `deploy/apps/vibesense.yaml`.
 | -1 | ExternalSecrets: `vibesense-database`, `vibesense-app-secrets`, `vibesense-platform` | Pods and the migration need them to start |
 | 0 | `migrate` Job (`alembic upgrade head`), an Argo CD Sync hook | Pods refuse to run on an outdated schema |
 | 1 | ServiceAccounts, Deployments, the UI Service and Ingress | |
-| 2 | KEDA `TriggerAuthentication` and one `ScaledObject` per worker | They scale the Deployments from wave 1 |
+| 2 | KEDA `TriggerAuthentication`, one `ScaledObject` per worker, the workers' `PodMonitor` | They refer to the Deployments from wave 1 |
 
 A failed migration fails the sync, so a release never rolls out onto a schema
 it can't use.

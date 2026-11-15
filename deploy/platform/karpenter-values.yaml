@@ -20,3 +20,7 @@ controller:
       memory: 256Mi
     limits:
       memory: 512Mi
+
+# Node launches, removals and pending pods, for the dashboard (Phase 9).
+serviceMonitor:
+  enabled: true

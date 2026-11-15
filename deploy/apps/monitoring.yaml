@@ -35,7 +35,7 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
-      - ServerSideApply=true # the chart's CRDs are too large for client-side apply
+      - ServerSideApply=true
       - RespectIgnoreDifferences=true
   # The operator's admission webhook certificate comes from cert-manager, whose
   # cainjector writes the CA into the webhook configurations at runtime.

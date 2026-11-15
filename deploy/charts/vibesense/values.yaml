@@ -123,6 +123,11 @@ ingress:
   # internet. Argo CD fills it in from the cluster's metadata (Task 6.3).
   allowedCidrs: ""
 
+# Prometheus scraping of the workers' /metrics (templates/pod-monitor.yaml).
+# Needs the PodMonitor type from kube-prometheus-stack (deploy/apps/monitoring.yaml).
+metrics:
+  podMonitor: true
+
 # Incoming traffic: deny by default, then allow the UI's port and Prometheus
 # scraping the workers (templates/network-policies.yaml). Kubelet health
 # probes come from the node's own IP, which the VPC CNI's policy agent allows;
