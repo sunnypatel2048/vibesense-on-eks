@@ -18,10 +18,10 @@ awsRegion: us-east-1
 images:
   app:
     repository: vibesense-app
-    tag: 292c95b46c5d # the commit the image was built from; CI updates it (Phase 7)
+    tag: 58902ab4f56e # the commit the image was built from; CI updates it (Phase 7)
   ai:
     repository: vibesense-ai
-    tag: 292c95b46c5d
+    tag: 58902ab4f56e
 
 # Plain settings every workload gets. A workload's own `env` wins on a clash.
 env:
