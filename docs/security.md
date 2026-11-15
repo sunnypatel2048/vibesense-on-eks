@@ -92,6 +92,12 @@ credentials that expire after one hour. No access keys are stored in GitHub.
   weekly, and each update goes through CI like any other PR.
 - `ci.yml` runs with `contents: read` only and no OIDC permission, so pull
   request checks can't obtain AWS credentials at all.
+- The repository is public, and so are its Actions logs and PR comments. Values
+  that identify the account or me are GitHub **secrets**, which GitHub masks
+  wherever they appear in a log: the role ARNs, the state bucket name, the alert
+  email and the admin CIDRs (`infra.yml` also masks each IP on its own). The
+  credentials action masks the account ID. The plan comment on a PR lists only
+  resource addresses and actions, never attribute values.
 - `ReadOnlyAccess` is broad, because a hand-written read policy would break
   whenever Terraform manages a new resource type. Its one dangerous read, the
   app's secrets, is removed with an explicit deny (next section).
