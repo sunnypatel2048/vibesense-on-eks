@@ -12,7 +12,7 @@ TORCH_CPU = --extra-index-url https://download.pytorch.org/whl/cpu --emit-index-
 LOCK_ARGS ?=
 IMAGE_PLATFORM = --python-platform aarch64-unknown-linux-gnu
 
-.PHONY: lock lint test images push ruleset load load-clean secrets secrets-check lint-infra lint-chart argocd dev-up dev-down dev-reset dev-logs
+.PHONY: lock lint test images push ruleset load load-clean drill secrets secrets-check lint-infra lint-chart argocd dev-up dev-down dev-reset dev-logs
 
 lock:
 	$(LOCK) $(TORCH_CPU) --universal requirements/dev.in -o requirements/dev.txt
@@ -82,6 +82,10 @@ load:
 
 load-clean:
 	scripts/load-test.sh --cleanup
+
+# Spot interruption drill: drain a busy burst node mid-load, measure recovery.
+drill:
+	scripts/drain-drill.sh
 
 # Branch protection for main, from .github/rulesets/main.json.
 ruleset:

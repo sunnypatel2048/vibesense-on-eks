@@ -1,7 +1,7 @@
 import random
 from datetime import UTC, datetime
 
-from src.load_test import EMAIL_DOMAIN, POST_ID, build_messages, cleanup, create_jobs
+from src.load_test import EMAIL_DOMAIN, POST_ID, build_messages, cleanup, count_notified, create_jobs
 from src.models import IntervalResultDB, MonitoringJobDB
 
 
@@ -36,3 +36,15 @@ def test_cleanup_removes_only_synthetic_jobs(session_factory, job):
         assert cleanup(db) == (1, 1)
         remaining = [str(r.job_id) for r in db.query(MonitoringJobDB)]
     assert remaining == [job["job_id"]]  # the real job is untouched
+
+
+def test_count_notified_counts_only_finished_intervals_of_these_jobs(session_factory, job):
+    with session_factory() as db:
+        [load_id] = create_jobs(db, 1)
+        noon = datetime(2026, 11, 15, 12, 0)
+        db.add_all([
+            IntervalResultDB(job_id=load_id, timestamp=noon, notified_at=noon),
+            IntervalResultDB(job_id=load_id, timestamp=datetime(2026, 11, 15, 12, 1)),  # not notified yet
+        ])
+        db.commit()
+        assert count_notified(db, [load_id]) == 1

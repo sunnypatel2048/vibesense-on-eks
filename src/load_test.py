@@ -10,6 +10,11 @@ so each one also flows through aggregation and notification.
   python -m src.load_test --jobs 20 --messages 200   # in the cluster: make load
   python -m src.load_test --cleanup                   # delete the synthetic jobs
 
+After sending, it waits until every message has been scored, aggregated and
+notified, by counting this run's interval rows that have `notified_at` set.
+The unique (job_id, timestamp) constraint means a redelivered message can't
+add a second row, so "notified == sent" proves nothing was lost or doubled.
+
 Message size: SQS accepts up to 1 MiB per message (src/common/queue.py checks
 before sending). 50 short comments are about 3 KB. A real video's batch could
 exceed the limit; the answers are chunking the batch into several messages, or
@@ -110,6 +115,32 @@ def cleanup(db: Session) -> tuple[int, int]:
     return jobs, intervals
 
 
+def count_notified(db: Session, job_ids: list[UUID]) -> int:
+    """Intervals of these jobs that went all the way through the pipeline."""
+    return (
+        db.query(IntervalResultDB)
+        .filter(IntervalResultDB.job_id.in_(job_ids), IntervalResultDB.notified_at.isnot(None))
+        .count()
+    )
+
+
+def wait_until_notified(session_factory, job_ids: list[UUID], expected: int, timeout: float) -> tuple[int, float]:
+    """Poll until `expected` intervals are notified or `timeout` passes. Returns (count, seconds)."""
+    began = time.monotonic()
+    last_print = 0.0
+    done = 0
+    while (elapsed := time.monotonic() - began) < timeout:
+        with session_factory() as db:  # a fresh session each time: no cached rows
+            done = count_notified(db, job_ids)
+        if done >= expected:
+            break
+        if elapsed - last_print >= 15:
+            print(f"{datetime.now(UTC):%H:%M:%S} UTC  {done}/{expected} fully processed", flush=True)
+            last_print = elapsed
+        time.sleep(5)
+    return done, time.monotonic() - began
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--jobs", type=int, default=20, help="synthetic jobs to create")
@@ -117,6 +148,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--comments", type=int, default=50, help="comments per message")
     parser.add_argument("--seed", type=int, default=7, help="random seed for the fake comments")
     parser.add_argument("--cleanup", action="store_true", help="delete earlier synthetic jobs and exit")
+    parser.add_argument("--timeout", type=int, default=900, help="seconds to wait for every message to finish")
     args = parser.parse_args(argv)
 
     settings = get_settings(LoadTestSettings)
@@ -135,9 +167,18 @@ def main(argv: list[str] | None = None) -> None:
 
     print(f"{datetime.now(UTC):%H:%M:%S} UTC  created {len(job_ids)} jobs; sending {len(messages)} messages "
           f"({args.comments} comments each) to {settings.analysis_queue}")
+    began = time.monotonic()
     seconds = send_all(settings.analysis_queue, messages)
-    print(f"{datetime.now(UTC):%H:%M:%S} UTC  sent {len(messages)} messages in {seconds:.1f}s. "
-          "Watch: kubectl -n vibesense get pods -w")
+    print(f"{datetime.now(UTC):%H:%M:%S} UTC  sent {len(messages)} messages in {seconds:.1f}s; "
+          "waiting for all of them to be scored, aggregated and notified", flush=True)
+
+    done, _ = wait_until_notified(session_factory, job_ids, len(messages), args.timeout)
+    total = time.monotonic() - began
+    if done < len(messages):
+        print(f"RESULT  FAILED: {done}/{len(messages)} processed after {total:.0f}s. Check the DLQs and worker logs.")
+        raise SystemExit(1)
+    print(f"RESULT  {done}/{len(messages)} messages fully processed in {total:.0f}s "
+          "(first message sent → last interval notified). None lost, none doubled.")
 
 
 if __name__ == "__main__":
