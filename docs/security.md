@@ -95,6 +95,12 @@ credentials that expire after one hour. No access keys are stored in GitHub.
   be moved to new code, which is how the 2025 `tj-actions/changed-files`
   compromise reached thousands of repositories. Dependabot proposes updated pins
   weekly, and each update goes through CI like any other PR.
+- `release.yml` commits each new image tag to `values.yaml` with a **deploy
+  key** (write access to this repository only), because branch protection
+  blocks every other direct push to `main`. The key is a secret of the
+  `release` environment, which only `main` may use, so a workflow changed in a
+  pull request can't read it. It's the one long-lived credential in CI; the
+  alternative, a GitHub App, removes it at the cost of more setup.
 - `ci.yml` runs with `contents: read` only and no OIDC permission, so pull
   request checks can't obtain AWS credentials at all.
 - The repository is public, and so are its Actions logs and PR comments. Values
