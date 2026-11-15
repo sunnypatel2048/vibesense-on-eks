@@ -92,3 +92,7 @@ grafana:
 kube-state-metrics:
   nodeSelector:
     vibesense/node-role: system
+  # Expose the vibesense/node-role node label as kube_node_labels{label_vibesense_node_role=...},
+  # for the dashboard's system-vs-burst node panels.
+  metricLabelsAllowlist:
+    - nodes=[vibesense/node-role]

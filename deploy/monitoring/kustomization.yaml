@@ -1,0 +1,21 @@
+# This directory is rendered with Kustomize by the monitoring Argo CD app.
+# Dashboards are plain Grafana JSON files: edit one in Grafana, export it with
+# "Share → Export → Save to file", and replace the file here.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: monitoring
+
+resources:
+  - grafana-admin.yaml
+
+# One ConfigMap per dashboard. Grafana's sidecar loads every ConfigMap labelled
+# grafana_dashboard=1 (deploy/platform/monitoring-values.yaml).
+configMapGenerator:
+  - name: dashboard-vibesense-pipeline
+    files:
+      - dashboards/vibesense-pipeline.json
+
+generatorOptions:
+  disableNameSuffixHash: true # a stable name; the sidecar reloads on change anyway
+  labels:
+    grafana_dashboard: "1"

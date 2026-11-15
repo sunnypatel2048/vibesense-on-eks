@@ -1,6 +1,6 @@
 # Prometheus, Grafana and Alertmanager (kube-prometheus-stack), plus this repo's
-# monitoring objects in deploy/monitoring/ (Grafana's admin secret now; the
-# dashboard and the SLO alert later in Phase 9).
+# monitoring objects in deploy/monitoring/ (rendered with Kustomize): Grafana's
+# admin secret and the dashboards, and later the SLO alert.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
