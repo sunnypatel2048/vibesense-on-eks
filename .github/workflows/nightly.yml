@@ -1,0 +1,35 @@
+# Forgot-to-tear-down safety net: every night, look for anything `make down`
+# should have removed. A failed run emails you (GitHub's default for scheduled
+# workflows). Uses the read-only plan role: CI can notice a forgotten cluster
+# but can never delete or create anything (docs/security.md). The $1/day AWS
+# Budget is the second net, for anything this check doesn't know about.
+#
+# GitHub pauses scheduled workflows in public repos after 60 days without
+# activity; re-enable it from the Actions tab if that happens.
+name: nightly
+
+on:
+  schedule:
+    - cron: "23 6 * * *" # 06:23 UTC: after an evening session, before morning
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  leftovers:
+    name: leftovers check
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write # OIDC → vibesense-ci-plan (trusted for main, read-only)
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ secrets.AWS_PLAN_ROLE_ARN }}
+          aws-region: us-east-1
+          mask-aws-account-id: true
+          role-session-name: nightly-leftovers
+      - name: Anything left running?
+        run: scripts/leftovers.sh
