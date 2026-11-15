@@ -68,6 +68,11 @@ workers:
     # Scale to zero when idle: the model's memory is only paid for while there
     # are comments to score.
     autoscaling: { queue: analysis, minReplicas: 0, maxReplicas: 6, queueLength: 5 }
+    # Only on Karpenter's burst nodes (deploy/cluster-config/karpenter.yaml):
+    # scaling the AI worker from zero adds a node, and back to zero removes it.
+    nodeSelector: { vibesense/node-role: burst }
+    tolerations:
+      - { key: vibesense/burst, operator: Exists, effect: NoSchedule }
     startupSeconds: 180 # loads the model before serving probes
     resources:
       requests: { cpu: 500m, memory: 768Mi } # measured 390Mi with the model loaded

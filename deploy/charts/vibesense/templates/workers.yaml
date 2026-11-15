@@ -33,6 +33,14 @@ spec:
         {{- include "vibesense.selectorLabels" (dict "component" $name) | nindent 8 }}
     spec:
       serviceAccountName: {{ $name }}
+      {{- with $w.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $w.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       securityContext:
         {{- include "vibesense.podSecurityContext" $ | nindent 8 }}
       # On SIGTERM the worker stops polling and hands unfinished messages back

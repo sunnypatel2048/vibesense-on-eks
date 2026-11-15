@@ -1,0 +1,17 @@
+# Helm repositories Argo CD needs to be told about. Karpenter's chart is only
+# published to an OCI registry (Amazon ECR Public); this marks it as one.
+# Public and anonymous: no credentials here.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: repo-karpenter
+  namespace: argocd
+  labels:
+    argocd.argoproj.io/secret-type: repository
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+stringData:
+  name: karpenter
+  type: helm
+  url: public.ecr.aws/karpenter
+  enableOCI: "true"
