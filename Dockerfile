@@ -11,7 +11,7 @@
 ARG PYTHON_VERSION=3.12
 # Multi-platform digest of python:3.12-slim. Pinned so builds are reproducible;
 # bump it deliberately (rebuild, rescan, rerun the golden check).
-ARG PYTHON_DIGEST=sha256:aa943ce411423c7582288f18707ff66eddcbaeb510502d747a72aeb34f30d159
+ARG PYTHON_DIGEST=sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b
 # The exact Hugging Face commit the golden results (tests/fixtures/) were recorded with.
 ARG MODEL_NAME=tabularisai/multilingual-sentiment-analysis
 ARG MODEL_REVISION=eea032081f8d247b4303ef3565e7cec1b6f201c9
@@ -66,6 +66,14 @@ RUN python -c "from transformers import pipeline; pipeline('sentiment-analysis',
 # Runtime base: no compilers, a non-root user, the app code's home.
 # ---------------------------------------------------------------------------
 FROM python-base AS runtime
+# Security fixes Debian has shipped but the pinned base image doesn't have yet.
+# Named one by one, not `apt-get upgrade`, so a rebuild only changes what's
+# listed here. Remove a package once the pinned digest includes its fix
+# (docs/security.md).
+#   zlib1g: CVE-2026-85091, CVE-2026-76844 (fixed in 1:1.3.dfsg+really1.3.1-1+deb13u1)
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends --only-upgrade zlib1g \
+ && rm -rf /var/lib/apt/lists/*
 RUN groupadd --system --gid 10001 app \
  && useradd --system --uid 10001 --gid app --create-home --home-dir /home/app app
 WORKDIR /app

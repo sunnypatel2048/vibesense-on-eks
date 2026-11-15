@@ -39,6 +39,19 @@ Base image: `python:3.12-slim` (Debian 13.7), before pinning.
 Also pinned: the base image by digest, and the model by Hugging Face revision
 (`eea032081f8d247b4303ef3565e7cec1b6f201c9`), so a rebuild can't silently change either.
 
+### Fixed after the first CI scan: 2026-11-15
+
+The CI gate (`ci.yml`) failed its first run on five fixable HIGH findings that
+had appeared since the baseline.
+
+| Package | CVE | From | Fix |
+| --- | --- | --- | --- |
+| dnspython (app, via email-validator) | CVE-2026-128089 | 2.9.1 | Floor `>=2.9.2` in `requirements/app.in` |
+| apt, libapt-pkg7.0 (both) | CVE-2026-109518 | 3.0.3 | New base image digest, which ships 3.0.4 |
+| zlib1g (both) | CVE-2026-85091, CVE-2026-76844 | `1.3.1-1+b1` | Not yet in the newest base image, so upgraded by name in the Dockerfile's `runtime` stage. Remove that line once the pinned digest includes `+deb13u1`. |
+
+Golden check after the base image change: 20/20 match.
+
 ### Accepted: Debian packages with no fix available
 
 Present in both images. Status "affected" in Debian 13 with no fixed version at
