@@ -12,7 +12,25 @@ TORCH_CPU = --extra-index-url https://download.pytorch.org/whl/cpu --emit-index-
 LOCK_ARGS ?=
 IMAGE_PLATFORM = --python-platform aarch64-unknown-linux-gnu
 
-.PHONY: lock lint test images push ruleset load load-clean drill grafana trace secrets secrets-check lint-infra lint-chart argocd dev-up dev-down dev-reset dev-logs
+.PHONY: up down leftovers status cost lock lint test images push ruleset load load-clean drill grafana trace secrets secrets-check lint-infra lint-chart argocd dev-up dev-down dev-reset dev-logs
+
+# --- Lifecycle -----------------------------------------------------------------
+# From nothing to a working URL, and back to zero cost.
+up:
+	scripts/up.sh
+
+down:
+	scripts/down.sh
+
+# Anything from the platform layer still in AWS (also run by `make down` and nightly in CI).
+leftovers:
+	scripts/leftovers.sh
+
+status:
+	scripts/status.sh
+
+cost:
+	scripts/cost.sh
 
 lock:
 	$(LOCK) $(TORCH_CPU) --universal requirements/dev.in -o requirements/dev.txt
