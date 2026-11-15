@@ -88,3 +88,4 @@ if submitted:
         f"Reports go to {request.email}.",
         icon="✅",
     )
+# Rollout test 2026-11-15: a merged change reaches the cluster with no kubectl.
