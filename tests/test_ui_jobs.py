@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -15,7 +15,7 @@ from src.ui_service.jobs import (
     validate_request,
 )
 
-NOW = datetime(2026, 10, 29, 15, 0, tzinfo=timezone.utc)
+NOW = datetime(2026, 10, 29, 15, 0, tzinfo=UTC)
 REQUEST = JobRequest(full_name="Ada Lovelace", email="ada@gmail.com", video_id="vid123")
 
 
@@ -98,7 +98,7 @@ def test_job_is_saved_scheduled_and_kicked_off(session_factory, published):
     assert scheduler.scheduled == [(str(created.job_id), 4 * 3600)]
     assert published.calls == [("ingest", {"job_id": str(created.job_id), "post_id": "vid123"})]
     assert created.first_report_now is True
-    assert created.ends_at == datetime(2026, 10, 30, 15, 0, tzinfo=timezone.utc)
+    assert created.ends_at == datetime(2026, 10, 30, 15, 0, tzinfo=UTC)
 
 
 def test_scheduling_failure_removes_the_job(session_factory, published):

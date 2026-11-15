@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from types import SimpleNamespace
 
 import boto3
@@ -69,7 +69,7 @@ def run_once(handler, **options):
 
 
 def test_published_message_reaches_handler_and_is_deleted(sqs):
-    sent_at = datetime(2026, 10, 29, tzinfo=timezone.utc)
+    sent_at = datetime(2026, 10, 29, tzinfo=UTC)
     publish(QUEUE, {"job_id": "abc", "sent_at": sent_at})
 
     received = []

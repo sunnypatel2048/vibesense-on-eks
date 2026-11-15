@@ -67,13 +67,14 @@ def environment() -> dict:
 def score() -> list[dict]:
     return [
         {"text": text[:80], "label": r.sentiment, "score": round(r.confidence, 4)}
-        for text, r in zip(SAMPLES, score_comments(SAMPLES))
+        for text, r in zip(SAMPLES, score_comments(SAMPLES), strict=True)
     ]
 
 
 def write() -> int:
     GOLDEN.parent.mkdir(parents=True, exist_ok=True)
-    GOLDEN.write_text(json.dumps({"recorded_with": environment(), "results": score()}, indent=2, ensure_ascii=False) + "\n")
+    golden = {"recorded_with": environment(), "results": score()}
+    GOLDEN.write_text(json.dumps(golden, indent=2, ensure_ascii=False) + "\n")
     print(f"Recorded {len(SAMPLES)} results to {GOLDEN} with {environment()}")
     return 0
 

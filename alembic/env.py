@@ -1,11 +1,10 @@
-from src.models import Base
-from src.common.config import MigrationSettings, get_settings
-
 from logging.config import fileConfig
 
 from sqlalchemy import create_engine, pool
 
 from alembic import context
+from src.common.config import MigrationSettings, get_settings
+from src.models import Base
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

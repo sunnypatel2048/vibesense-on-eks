@@ -1,0 +1,11 @@
+# Weekly PRs that move the workflows' SHA-pinned actions to their latest
+# releases. Each PR runs ci.yml like any other change.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"] # one PR for all of them

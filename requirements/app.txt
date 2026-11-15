@@ -81,9 +81,10 @@ cymem==2.0.16
     #   preshed
     #   spacy
     #   thinc
-dnspython==2.9.1
+dnspython==2.9.2
     # via
     #   -c requirements/dev.txt
+    #   -r requirements/app.in
     #   email-validator
 email-validator==2.3.0
     # via

@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
@@ -29,7 +29,7 @@ def job(session_factory):
             email="ada@example.com",
             intervals_seconds=4 * 3600,
             total_duration_seconds=24 * 3600,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         )
         db.add(row)
         db.commit()

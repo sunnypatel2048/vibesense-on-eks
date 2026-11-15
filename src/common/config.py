@@ -10,7 +10,7 @@ Secrets are `SecretStr`: they print as '**********'. Call `.get_secret_value()`
 only at the point where the value is actually used.
 """
 from functools import lru_cache
-from typing import Any, Literal, TypeVar
+from typing import Any, Literal
 
 from pydantic import SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -141,11 +141,8 @@ class LocalSchedulerSettings(DatabaseSettings, QueueSettings):
 MigrationSettings = DatabaseSettings
 
 
-S = TypeVar("S", bound=_BaseSettings)
-
-
 @lru_cache
-def get_settings(settings_cls: type[S]) -> S:
+def get_settings[S: _BaseSettings](settings_cls: type[S]) -> S:
     """Load a settings class once per process and reuse it.
 
     Tests call `get_settings.cache_clear()` after changing the environment.

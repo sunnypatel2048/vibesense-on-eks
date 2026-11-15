@@ -6,9 +6,10 @@ Writes: analysis queue  {job_id, interval_timestamp, comments: [str, ...]}
 
 Run with: python -m src.ingestion_service.app
 """
-from datetime import datetime, timezone
+from collections.abc import Callable
+from datetime import UTC, datetime
 from functools import partial
-from typing import Any, Callable
+from typing import Any
 from uuid import UUID
 
 import structlog
@@ -16,10 +17,10 @@ from sqlalchemy.orm import Session
 
 from src.common.config import IngestionSettings, get_settings
 from src.common.db import create_session_factory
-from src.common.queue import publish
-from src.common.worker import run_worker
-from src.common.scheduler import as_utc, job_end
 from src.common.logs import configure_logging
+from src.common.queue import publish
+from src.common.scheduler import as_utc, job_end
+from src.common.worker import run_worker
 from src.ingestion_service.preprocessor import preprocess_text
 from src.ingestion_service.youtube_fetcher import fetch_comments, parse_published_at
 from src.models import MonitoringJobDB
@@ -42,7 +43,7 @@ def handle_ingest(
     next_queue: str,
     now: datetime | None = None,
 ) -> None:
-    now = now or datetime.now(timezone.utc)
+    now = now or datetime.now(UTC)
     job_id = payload["job_id"]
     log = logger.bind(job_id=job_id)
 
@@ -77,7 +78,7 @@ def handle_ingest(
                 "comments": [clean(c["text"]) for c in new_comments],
             },
         )
-        job.last_fetched_at = parse_published_at(newest["published_at"]).astimezone(timezone.utc).replace(tzinfo=None)
+        job.last_fetched_at = parse_published_at(newest["published_at"]).astimezone(UTC).replace(tzinfo=None)
         db.commit()
 
     log.info("comments_ingested", count=len(new_comments))

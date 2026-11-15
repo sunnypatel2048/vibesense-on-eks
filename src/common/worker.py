@@ -45,7 +45,7 @@ def check_health(state: HealthState, policy: HealthPolicy, now: float) -> tuple[
 
 
 class _ProbeHandler(BaseHTTPRequestHandler):
-    server: "_ProbeServer"
+    server: _ProbeServer
 
     def do_GET(self) -> None:  # noqa: N802 (http.server naming)
         path = self.path.split("?", 1)[0]

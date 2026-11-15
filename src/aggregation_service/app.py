@@ -6,8 +6,9 @@ Writes: notification queue  {job_id, interval_timestamp, aggregate: Aggregate}
 
 Run with: python -m src.aggregation_service.app
 """
+from collections.abc import Callable, Sequence
 from functools import partial
-from typing import Any, Callable, Sequence
+from typing import Any
 from uuid import UUID
 
 import structlog
@@ -17,9 +18,9 @@ from sqlalchemy.orm import Session
 
 from src.common.config import AggregationSettings, get_settings
 from src.common.db import create_session_factory
+from src.common.logs import configure_logging
 from src.common.queue import publish
 from src.common.worker import run_worker
-from src.common.logs import configure_logging
 from src.models import Aggregate, AnalysisOutput, IntervalResultDB, interval_time
 
 logger = structlog.get_logger()

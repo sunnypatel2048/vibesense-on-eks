@@ -8,7 +8,7 @@ the local scheduler process (src/local_scheduler) enqueues due jobs instead.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from functools import lru_cache
 from typing import Any, Protocol
 
@@ -34,8 +34,8 @@ class ScheduledJob(Protocol):
 def as_utc(value: datetime) -> datetime:
     """Database timestamps are naive UTC; make them timezone-aware."""
     if value.tzinfo is None:
-        return value.replace(tzinfo=timezone.utc)
-    return value.astimezone(timezone.utc)
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
 
 
 def job_end(job: ScheduledJob) -> datetime:

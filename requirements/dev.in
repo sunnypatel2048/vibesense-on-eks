@@ -4,3 +4,4 @@
 pytest==7.4.3
 pytest-mock==3.17.0
 moto==5.2.5
+ruff==0.16.9      # lint (pyproject.toml); same version in CI via this lock

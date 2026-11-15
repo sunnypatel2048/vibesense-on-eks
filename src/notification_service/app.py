@@ -5,11 +5,12 @@ Reads: notification queue  {job_id, interval_timestamp, aggregate: Aggregate}
 Run with: python -m src.notification_service.app
 """
 import smtplib
-from datetime import datetime, timezone
+from collections.abc import Callable
+from datetime import UTC, datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from functools import partial
-from typing import Any, Callable
+from typing import Any
 from uuid import UUID
 
 import structlog
@@ -18,8 +19,8 @@ from sqlalchemy.orm import Session
 
 from src.common.config import NotificationSettings, SmtpSettings, get_settings
 from src.common.db import create_session_factory
-from src.common.worker import run_worker
 from src.common.logs import configure_logging
+from src.common.worker import run_worker
 from src.models import Aggregate, IntervalResultDB, MonitoringJobDB, interval_time
 
 logger = structlog.get_logger()
@@ -176,7 +177,7 @@ def handle_notification(
         # on retry; the reverse order would mean a lost one. Exactly-once isn't
         # possible, so we choose at-least-once with a tiny duplicate window.
         send(msg)
-        interval.notified_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        interval.notified_at = datetime.now(UTC).replace(tzinfo=None)
         db.commit()
 
     log.info("email_sent")

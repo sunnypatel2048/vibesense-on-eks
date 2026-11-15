@@ -10,17 +10,18 @@ Run with: python -m src.local_scheduler.app
 import math
 import signal
 import threading
-from datetime import datetime, timedelta, timezone
-from typing import Any, Callable
+from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import structlog
 from sqlalchemy.orm import Session
 
 from src.common.config import LocalSchedulerSettings, get_settings
 from src.common.db import create_session_factory
+from src.common.logs import configure_logging
 from src.common.queue import publish
 from src.common.scheduler import as_utc, ingest_message, job_end
-from src.common.logs import configure_logging
 from src.models import MonitoringJobDB
 
 logger = structlog.get_logger()
@@ -87,7 +88,7 @@ def main() -> None:
     logger.info("local_scheduler_started", poll_seconds=POLL_SECONDS)
     while not stopping.is_set():
         try:
-            tracker.tick(datetime.now(timezone.utc))
+            tracker.tick(datetime.now(UTC))
         except Exception:
             logger.exception("tick_failed")
         stopping.wait(POLL_SECONDS)
