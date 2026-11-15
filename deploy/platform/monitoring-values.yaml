@@ -5,6 +5,11 @@
 # on the system nodes. Dashboards and alert rules live in Git, so losing the
 # data loses nothing that can't be rebuilt.
 
+# The operator's CRDs come from their own app in wave -1
+# (deploy/apps/prometheus-operator-crds.yaml), before anything uses them.
+crds:
+  enabled: false
+
 # EKS runs these control-plane components itself; their metrics endpoints
 # aren't reachable from inside the cluster, so scraping them only produces
 # failed targets and firing alerts.

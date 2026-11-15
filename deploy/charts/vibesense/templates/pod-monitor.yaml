@@ -1,0 +1,33 @@
+{{- if .Values.metrics.podMonitor }}
+{{- /*
+Prometheus scrapes every worker's /metrics (src/common/metrics.py): messages
+handled by queue and result, processing time, messages published. The
+allow-prometheus-scrape network policy opens the port for this and nothing
+else. Wave 2, with the other objects that refer to the Deployments.
+*/ -}}
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: vibesense-workers
+  labels:
+    {{- include "vibesense.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  selector:
+    matchExpressions:
+      - key: app.kubernetes.io/component
+        operator: In
+        values:
+          {{- range $name, $_ := .Values.workers }}
+          - {{ $name }}
+          {{- end }}
+  podMetricsEndpoints:
+    - port: http-metrics
+      path: /metrics
+      interval: 15s
+      # Pod labels Prometheus keeps on every series, for per-worker panels.
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_pod_label_app_kubernetes_io_component]
+          targetLabel: worker
+{{- end }}
