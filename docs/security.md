@@ -77,11 +77,16 @@ credentials that expire after one hour. No access keys are stored in GitHub.
 
 | Role | Trusted `sub` (exact match) | Permissions |
 | --- | --- | --- |
-| `vibesense-ci-push` | `repo:sunnypatel2048/vibesense-on-eks:ref:refs/heads/main` | Push to the two ECR repositories |
+| `vibesense-ci-push` | `repo:sunnypatel2048@<owner-id>/vibesense-on-eks@<repo-id>:ref:refs/heads/main` | Push to the two ECR repositories |
 | `vibesense-ci-plan` | `...:pull_request` and `...:ref:refs/heads/main` | `ReadOnlyAccess`, plus writing/deleting `*.tflock` in the state bucket |
 
 - Both trust policies check `aud` and `sub` with `StringEquals`. Checking only the
   audience would let any GitHub repository assume the roles.
+- The `sub` GitHub issues for this repository contains the owner's and the
+  repository's numeric IDs as well as their names. Names can be re-registered
+  after a rename or deletion; IDs never are, so a look-alike repository can't
+  match. (Found when the first plan run was denied: CloudTrail showed the
+  actual `sub`.)
 - There is no apply role. The platform layer is applied from a laptop, so CI can
   never create cost or destroy resources.
 - Pull requests from forks receive no OIDC token. Workflows must never use
@@ -92,6 +97,12 @@ credentials that expire after one hour. No access keys are stored in GitHub.
   weekly, and each update goes through CI like any other PR.
 - `ci.yml` runs with `contents: read` only and no OIDC permission, so pull
   request checks can't obtain AWS credentials at all.
+- The repository is public, and so are its Actions logs and PR comments. Values
+  that identify the account or me are GitHub **secrets**, which GitHub masks
+  wherever they appear in a log: the role ARNs, the state bucket name, the alert
+  email and the admin CIDRs (`infra.yml` also masks each IP on its own). The
+  credentials action masks the account ID. The plan comment on a PR lists only
+  resource addresses and actions, never attribute values.
 - `ReadOnlyAccess` is broad, because a hand-written read policy would break
   whenever Terraform manages a new resource type. Its one dangerous read, the
   app's secrets, is removed with an explicit deny (next section).

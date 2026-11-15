@@ -5,7 +5,16 @@
 
 locals {
   github_oidc_host = "token.actions.githubusercontent.com"
-  repo_sub_prefix  = "repo:${var.github_repository}"
+
+  # GitHub's subject claim for this repository includes the owner's and the
+  # repository's immutable numeric IDs next to their names:
+  #   repo:<owner>@<owner_id>/<repo>@<repo_id>:pull_request
+  # Names can be reused (rename or delete a repo, and someone else can create
+  # one with the old name); IDs can't, so a look-alike repository can never
+  # match this trust policy.
+  repo_owner      = split("/", var.github_repository)[0]
+  repo_name       = split("/", var.github_repository)[1]
+  repo_sub_prefix = "repo:${local.repo_owner}@${var.github_owner_id}/${local.repo_name}@${var.github_repository_id}"
 }
 
 # AWS verifies GitHub's tokens against its own trusted CAs, so no thumbprint is needed.

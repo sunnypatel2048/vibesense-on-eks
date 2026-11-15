@@ -1,0 +1,179 @@
+# Terraform checks and plans on pull requests.
+#
+# Runs on every PR, but its jobs only do work when infra/ (or this file)
+# changed. A skipped job counts as passed, so these checks can be required in
+# branch protection (Task 7.4) without blocking PRs that don't touch infra.
+#
+# Plans use vibesense-ci-plan through OIDC: read-only, plus the state lock. CI
+# can't apply anything; there is no apply role (docs/security.md).
+#
+# This repository is public, and so are its Actions logs and PR comments. The
+# account ID, state bucket, alert email and admin IP are therefore GitHub
+# secrets, which GitHub masks in logs, and the PR comment lists only resource
+# addresses and actions, never values.
+name: infra
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash # -eo pipefail: a failing command in a pipe fails the step
+
+concurrency:
+  group: infra-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  # Same versions as on the laptop (`terraform version`, `tflint --version`,
+  # `checkov --version`), so CI and `make lint-infra` agree.
+  TF_VERSION: 1.17.1
+  TFLINT_VERSION: 0.65.0
+  CHECKOV_VERSION: 3.4.0
+
+jobs:
+  changes:
+    name: detect infra changes
+    runs-on: ubuntu-24.04
+    permissions:
+      pull-requests: read # list the PR's changed files
+    outputs:
+      infra: ${{ steps.filter.outputs.infra }}
+    steps:
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: filter
+        with:
+          filters: |
+            infra:
+              - 'infra/**'
+              - '.github/workflows/infra.yml'
+
+  static:
+    name: terraform checks
+    needs: changes
+    if: needs.changes.outputs.infra == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+      - uses: terraform-linters/setup-tflint@6ffdbaa3be476b3431f7275c26966ef32ff60337 # v6.3.2
+        with:
+          tflint_version: v${{ env.TFLINT_VERSION }}
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - name: Install Checkov
+        run: |
+          uv tool install "checkov==${CHECKOV_VERSION}"
+          uv tool dir --bin >> "$GITHUB_PATH"
+      - name: Validate both layers (no backend, no AWS)
+        run: |
+          for layer in bootstrap platform; do
+            terraform -chdir=infra/$layer init -backend=false -input=false
+            terraform -chdir=infra/$layer validate
+          done
+      - name: fmt, tflint and Checkov (same as make lint-infra)
+        env:
+          GITHUB_TOKEN: ${{ github.token }} # tflint downloads its AWS plugin from GitHub
+        run: make lint-infra
+
+  plan:
+    name: terraform plan (${{ matrix.layer }})
+    needs: [changes, static]
+    # Fork PRs get neither secrets nor an OIDC token; skip rather than fail.
+    if: >-
+      needs.changes.outputs.infra == 'true' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write # exchange GitHub's OIDC token for the plan role's credentials
+      pull-requests: write # the plan summary comment
+    strategy:
+      fail-fast: false
+      matrix:
+        layer: [bootstrap, platform]
+    env:
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT: "false"
+      # The gitignored terraform.tfvars values, from secrets.
+      TF_VAR_alerts_email: ${{ secrets.TF_VAR_ALERTS_EMAIL }}
+      TF_VAR_admin_cidrs: ${{ secrets.TF_VAR_ADMIN_CIDRS }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Mask the admin IPs in logs
+        # The secret is the whole list; GitHub only masks exact matches, so
+        # mask each address on its own too.
+        run: |
+          for cidr in $(jq -r '.[]' <<<"$TF_VAR_admin_cidrs"); do
+            echo "::add-mask::$cidr"
+            echo "::add-mask::${cidr%/*}"
+          done
+
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ secrets.AWS_PLAN_ROLE_ARN }}
+          aws-region: us-east-1
+          mask-aws-account-id: true
+          role-session-name: infra-plan-${{ github.event.pull_request.number }}
+
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false # plain exit codes and output
+
+      - name: terraform init
+        run: >-
+          terraform -chdir=infra/${{ matrix.layer }} init
+          -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}"
+          -backend-config="region=us-east-1"
+
+      - name: terraform plan
+        id: plan
+        run: |
+          cd infra/${{ matrix.layer }}
+          terraform plan -no-color -lock-timeout=60s -out=tfplan | tee plan.txt
+          # Summary for the PR comment: counts, then each changed resource's
+          # address and action. No attribute values.
+          {
+            grep -E '^(Plan:|No changes\.)' plan.txt || echo "No summary line found; see the job log."
+            echo
+            terraform show -json tfplan | jq -r '
+              (.resource_changes // [])[]
+              | select(.change.actions != ["no-op"])
+              | "- `\(.change.actions | join(" → "))` \(.address)"'
+          } > summary.md
+          cat summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Comment the plan summary on the PR
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          LAYER: ${{ matrix.layer }}
+        with:
+          script: |
+            const fs = require('fs');
+            const layer = process.env.LAYER;
+            const marker = `<!-- infra-plan:${layer} -->`;
+            const summary = fs.readFileSync(`infra/${layer}/summary.md`, 'utf8');
+            const body = [
+              marker,
+              `### terraform plan: \`${layer}\``,
+              '',
+              summary.length > 60000 ? summary.slice(0, 60000) + '\n…(truncated)' : summary,
+              '',
+              `Full plan (secrets masked) in the [job log](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}).`,
+            ].join('\n');
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number });
+            const existing = comments.find(c => c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }
