@@ -130,12 +130,15 @@ class AggregationSettings(DatabaseSettings, QueueSettings, WorkerSettings):
 
 class NotificationSettings(DatabaseSettings, SmtpSettings, QueueSettings, WorkerSettings):
     # Comma-separated domains whose jobs are logged instead of emailed, e.g.
-    # "example.com" for load tests (src/load_test.py). Empty: email everyone.
-    suppress_email_domains: str = ""  # SUPPRESS_EMAIL_DOMAINS
+    # "example.com" for load tests (src/load_test.py). Unset: email everyone.
+    # None, not "", as the default: settings validate defaults too, and the
+    # blank check above rejects "" (a variable set to nothing is a mistake).
+    suppress_email_domains: str | None = None  # SUPPRESS_EMAIL_DOMAINS
 
     @property
     def suppressed_domains(self) -> frozenset[str]:
-        return frozenset(d.strip().lower() for d in self.suppress_email_domains.split(",") if d.strip())
+        raw = self.suppress_email_domains or ""
+        return frozenset(d.strip().lower() for d in raw.split(",") if d.strip())
 
 
 # Development only: the stand-in for EventBridge Scheduler.
