@@ -1,0 +1,9 @@
+# Helm values for KEDA (deploy/apps/keda.yaml).
+#
+# The operator's service account keeps the chart's default name, keda-operator,
+# which the Pod Identity association expects (infra/platform/workload-roles.tf).
+
+# Operator, metrics API server and admission webhooks: system nodes, so the
+# thing that scales workloads never runs on the nodes it causes to be added.
+nodeSelector:
+  vibesense/node-role: system

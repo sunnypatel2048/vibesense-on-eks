@@ -10,6 +10,11 @@
 # AWS account ID never lands in git.
 registry: ""
 
+# The AWS account, for SQS queue URLs in the KEDA triggers. Set by Argo CD the
+# same way as `registry`.
+awsAccountId: ""
+awsRegion: us-east-1
+
 images:
   app:
     repository: vibesense-app
@@ -53,12 +58,16 @@ workers:
     image: app
     command: ["python", "-m", "src.ingestion_service.app"]
     secretEnv: [DB_URL, YOUTUBE_API_KEY]
+    autoscaling: { queue: ingest, minReplicas: 1, maxReplicas: 3, queueLength: 2 }
     resources:
       requests: { cpu: 100m, memory: 256Mi } # measured 170Mi
       limits: { memory: 512Mi } # holds a video's comments in memory
   ai:
     image: ai # the image's own CMD starts the AI worker
     secretEnv: [] # no database, no SMTP: it only reads and writes queues
+    # Scale to zero when idle: the model's memory is only paid for while there
+    # are comments to score.
+    autoscaling: { queue: analysis, minReplicas: 0, maxReplicas: 6, queueLength: 5 }
     startupSeconds: 180 # loads the model before serving probes
     resources:
       requests: { cpu: 500m, memory: 768Mi } # measured 390Mi with the model loaded
@@ -67,6 +76,7 @@ workers:
     image: app
     command: ["python", "-m", "src.aggregation_service.app"]
     secretEnv: [DB_URL]
+    autoscaling: { queue: aggregation, minReplicas: 1, maxReplicas: 3, queueLength: 10 }
     resources:
       requests: { cpu: 50m, memory: 128Mi }
       limits: { memory: 256Mi }
@@ -77,13 +87,14 @@ workers:
       SMTP_SERVER: smtp.gmail.com
       SMTP_PORT: "587"
     secretEnv: [DB_URL, SMTP_USER, SMTP_PASS]
+    autoscaling: { queue: notification, minReplicas: 1, maxReplicas: 3, queueLength: 10 }
     resources:
       requests: { cpu: 50m, memory: 128Mi }
       limits: { memory: 256Mi }
 
 # Defaults for every worker; a worker can override replicas or startupSeconds.
 workerDefaults:
-  replicas: 1 # KEDA takes over scaling in Phase 8
+  replicas: 1 # only for a worker without `autoscaling`
   metricsPort: 9000 # /healthz, /readyz, /metrics (src/common/worker.py)
   startupSeconds: 120
 
@@ -114,6 +125,14 @@ networkPolicy:
   enabled: true
   prometheus:
     namespace: monitoring # kube-prometheus-stack (Phase 9)
+
+# KEDA scales each worker that has an `autoscaling` block on its queue's depth:
+# desired replicas = (visible + in-flight messages) / queueLength, between
+# minReplicas and maxReplicas (templates/scaled-objects.yaml). Queue depth, not
+# CPU: a worker waiting on I/O shows low CPU while its backlog grows.
+autoscaling:
+  pollingInterval: 10 # seconds between queue checks; low for a snappy demo
+  cooldownPeriod: 120 # idle seconds before scaling to zero (AI worker)
 
 migration:
   enabled: true

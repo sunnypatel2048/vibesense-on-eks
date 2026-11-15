@@ -36,6 +36,7 @@ spec:
           # valuesObject, not parameters: parameters become `helm --set`,
           # which splits on the commas in a CIDR list.
           valuesObject:
+            awsAccountId: '{{ index .metadata.annotations "vibesense.io/aws-account-id" }}'
             registry: '{{ index .metadata.annotations "vibesense.io/ecr-registry" }}'
             ingress:
               allowedCidrs: '{{ index .metadata.annotations "vibesense.io/ui-allowed-cidrs" }}'

@@ -1,0 +1,54 @@
+{{- /*
+KEDA ScaledObjects: scale each worker that has an `autoscaling` block on the
+depth of its SQS queue. KEDA reads the queue with its operator's own Pod
+Identity role (sqs:GetQueueAttributes only), not the workers' roles.
+Sync wave 2: after the Deployments they scale (wave 1).
+*/ -}}
+{{- $hasAutoscaling := false }}
+{{- range $name, $w := .Values.workers }}{{ if $w.autoscaling }}{{ $hasAutoscaling = true }}{{ end }}{{ end }}
+{{- if $hasAutoscaling }}
+{{- $account := required "awsAccountId is required (Argo CD sets it, Task 6.3)" .Values.awsAccountId }}
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: keda-aws
+  labels:
+    {{- include "vibesense.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  podIdentity:
+    provider: aws # the KEDA operator's EKS Pod Identity role
+{{- range $name, $w := .Values.workers }}
+{{- with $w.autoscaling }}
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "vibesense.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $name }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  scaleTargetRef:
+    name: {{ $name }}
+  minReplicaCount: {{ .minReplicas }}
+  maxReplicaCount: {{ .maxReplicas }}
+  pollingInterval: {{ $.Values.autoscaling.pollingInterval }}
+  cooldownPeriod: {{ $.Values.autoscaling.cooldownPeriod }}
+  triggers:
+    - type: aws-sqs-queue
+      authenticationRef:
+        name: keda-aws
+      metadata:
+        queueURL: {{ printf "https://sqs.%s.amazonaws.com/%s/vibesense-%s" $.Values.awsRegion $account .queue | quote }}
+        awsRegion: {{ $.Values.awsRegion | quote }}
+        queueLength: {{ .queueLength | quote }}
+        # Count messages being processed too, so a busy worker isn't scaled
+        # away in the middle of a batch.
+        scaleOnInFlight: "true"
+{{- end }}
+{{- end }}
+{{- end }}

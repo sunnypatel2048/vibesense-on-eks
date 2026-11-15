@@ -79,7 +79,7 @@ ruleset:
 
 # Render the app chart with placeholder values (Argo CD supplies the real ones).
 CHART := deploy/charts/vibesense
-CHART_TEST_VALUES := --set registry=123456789012.dkr.ecr.us-east-1.amazonaws.com \
+CHART_TEST_VALUES := --set awsAccountId=123456789012 --set registry=123456789012.dkr.ecr.us-east-1.amazonaws.com \
 	--set images.app.tag=test --set images.ai.tag=test --set ingress.allowedCidrs=203.0.113.7/32
 lint-chart:
 	helm lint $(CHART) $(CHART_TEST_VALUES)

@@ -27,6 +27,7 @@ metadata="$(terraform -chdir="$ROOT/infra/platform" output -json gitops_metadata
   echo "No gitops_metadata output. Run terraform apply in infra/platform first." >&2
   exit 1
 }
+aws_account_id="$(jq -r '.aws_account_id' <<<"$metadata")"
 ecr_registry="$(jq -r '.ecr_registry' <<<"$metadata")"
 ui_allowed_cidrs="$(jq -r '.ui_allowed_cidrs' <<<"$metadata")"
 
@@ -50,6 +51,7 @@ metadata:
     argocd.argoproj.io/secret-type: cluster
     vibesense.io/workloads: "true"
   annotations:
+    vibesense.io/aws-account-id: "$aws_account_id"
     vibesense.io/ecr-registry: "$ecr_registry"
     vibesense.io/ui-allowed-cidrs: "$ui_allowed_cidrs"
 type: Opaque

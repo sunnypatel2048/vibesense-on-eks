@@ -11,6 +11,7 @@ namespace. Argo CD installs it through `deploy/apps/vibesense.yaml`.
 | -1 | ExternalSecrets: `vibesense-database`, `vibesense-app-secrets`, `vibesense-platform` | Pods and the migration need them to start |
 | 0 | `migrate` Job (`alembic upgrade head`), an Argo CD Sync hook | Pods refuse to run on an outdated schema |
 | 1 | ServiceAccounts, Deployments, the UI Service and Ingress | |
+| 2 | KEDA `TriggerAuthentication` and one `ScaledObject` per worker | They scale the Deployments from wave 1 |
 
 A failed migration fails the sync, so a release never rolls out onto a schema
 it can't use.
@@ -21,6 +22,24 @@ it can't use.
 come from Terraform via Argo CD's cluster record; see
 `scripts/bootstrap-argocd.sh`. The chart refuses to render without them. To
 render it locally: `make lint-chart`.
+
+## Autoscaling
+
+KEDA scales each worker on its SQS queue's depth, counting messages waiting and
+in flight: replicas = messages / `queueLength`, within the worker's bounds.
+
+| Worker | Queue | Replicas | Messages per replica |
+| --- | --- | --- | --- |
+| ai | analysis | 0–6 | 5 |
+| ingestion | ingest | 1–3 | 2 |
+| aggregation | aggregation | 1–3 | 10 |
+| notification | notification | 1–3 | 10 |
+
+The AI worker scales to zero after 2 idle minutes, since the model's memory is
+the largest cost; the light workers stay warm. Queue depth rather than CPU,
+because a worker waiting on the YouTube API or SMTP shows low CPU while its
+backlog grows. The Deployments of autoscaled workers have no `replicas` field,
+so Argo CD never fights KEDA over it.
 
 ## Network policies
 
