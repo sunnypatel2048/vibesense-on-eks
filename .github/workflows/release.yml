@@ -1,0 +1,142 @@
+# Release on merge: build both images, push them to ECR tagged with the commit,
+# and commit the new tag to the chart's values.yaml. Argo CD does the
+# deploying when it sees that commit. CI holds no cluster credentials.
+#
+# Only runs when something that goes into an image changed. That also prevents
+# a loop: the tag bump only touches deploy/charts/, which isn't listed here.
+name: release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "requirements/**"
+      - "Dockerfile"
+      - "alembic/**"
+      - "alembic.ini"
+      - ".streamlit/**"
+      - ".github/workflows/release.yml"
+  workflow_dispatch: # re-release main by hand
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+# One release at a time, in order: a newer merge's tag always lands last.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  images:
+    name: build and push (${{ matrix.target }})
+    runs-on: ubuntu-24.04-arm # native arm64 for the Graviton nodes
+    permissions:
+      contents: read
+      id-token: write # OIDC → vibesense-ci-push (trusted for main only)
+    strategy:
+      matrix:
+        target: [app, ai]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Image tag = the commit
+        run: echo "TAG=${GITHUB_SHA::12}" >> "$GITHUB_ENV" # same format as `make push`
+
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ secrets.AWS_PUSH_ROLE_ARN }}
+          aws-region: us-east-1
+          mask-aws-account-id: true
+          role-session-name: release-${{ github.run_id }}
+
+      - uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
+        id: ecr
+
+      # ECR tags are immutable, so a re-run for the same commit would fail on
+      # push. If this commit's image is already there, there's nothing to do.
+      - name: Already pushed?
+        id: exists
+        run: |
+          found=$(aws ecr batch-get-image --repository-name "vibesense-${{ matrix.target }}" \
+            --image-ids imageTag="$TAG" --query 'images[0].imageId.imageTag' --output text)
+          if [ "$found" = "$TAG" ]; then
+            echo "vibesense-${{ matrix.target }}:$TAG is already in ECR; skipping the build."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+        if: steps.exists.outputs.skip != 'true'
+
+      - name: Build
+        if: steps.exists.outputs.skip != 'true'
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          target: ${{ matrix.target }}
+          platforms: linux/arm64
+          tags: ${{ steps.ecr.outputs.registry }}/vibesense-${{ matrix.target }}:${{ env.TAG }}
+          load: true # scan before anything reaches ECR
+          provenance: false # one plain image per push (infra/bootstrap/ecr.tf)
+          sbom: false
+          # Same scopes as ci.yml. Caches written on main are readable by PR
+          # runs, so after the first release PR builds get faster too.
+          cache-from: type=gha,scope=${{ matrix.target }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.target }}
+
+      # Same gate as on pull requests: a CVE published between the PR and the
+      # merge still stops the release.
+      - name: Scan
+        if: steps.exists.outputs.skip != 'true'
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ steps.ecr.outputs.registry }}/vibesense-${{ matrix.target }}:${{ env.TAG }}
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+
+      - name: Push
+        if: steps.exists.outputs.skip != 'true'
+        run: docker push "${{ steps.ecr.outputs.registry }}/vibesense-${{ matrix.target }}:${TAG}"
+
+  bump:
+    name: bump image tags in values.yaml
+    needs: images # both images are in ECR before Argo CD is told about them
+    runs-on: ubuntu-24.04
+    # The deploy key below is an environment secret: only jobs on main that
+    # name this environment can read it, never a pull request's workflow.
+    environment: release
+    permissions:
+      contents: read # the push uses the deploy key, not GITHUB_TOKEN
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          # A deploy key, because branch protection (Task 7.4) blocks direct
+          # pushes to main; the key is its only bypass. docs/security.md.
+          ssh-key: ${{ secrets.RELEASE_DEPLOY_KEY }}
+
+      - name: Commit the new tag
+        run: |
+          tag="${GITHUB_SHA::12}"
+          values=deploy/charts/vibesense/values.yaml
+          # Only the two image tags (4-space indent, 12 hex characters).
+          sed -E -i "s/^(    tag: )[0-9a-f]{12}/\1${tag}/" "$values"
+          test "$(grep -cE "^    tag: ${tag}( |$)" "$values")" = 2 || { echo "Expected 2 image tags in $values" >&2; exit 1; }
+          if git diff --quiet; then
+            echo "values.yaml already points at $tag."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "deploy: vibesense images ${tag}"
+          # main can move while this runs (another merge); rebase and retry.
+          for attempt in 1 2 3; do
+            git push origin HEAD:main && exit 0
+            git pull --rebase origin main
+          done
+          exit 1

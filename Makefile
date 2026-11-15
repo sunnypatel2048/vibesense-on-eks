@@ -35,7 +35,8 @@ images:
 	$(BUILD) --target ai -t vibesense-ai:$(IMAGE_TAG) .
 
 # Build and push both images to ECR, tagged with the current commit, then put
-# that tag in deploy/charts/vibesense/values.yaml. Phase 7's CI replaces this.
+# that tag in deploy/charts/vibesense/values.yaml. Merges to main do this
+# automatically (.github/workflows/release.yml); this is the manual fallback.
 # The tag must describe the code, so it refuses to run with uncommitted changes
 # to anything that goes into an image.
 REGISTRY = $(shell aws sts get-caller-identity --query Account --output text).dkr.ecr.us-east-1.amazonaws.com
