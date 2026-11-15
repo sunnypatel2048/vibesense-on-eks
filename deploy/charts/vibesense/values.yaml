@@ -45,23 +45,24 @@ externalSecrets:
 #
 # Resources: memory requests and limits on everything, CPU requests only. A CPU
 # limit throttles a pod even when the node has idle CPU; memory can't be
-# shared that way, so it gets a hard cap. Starting values; re-measure with
-# `kubectl top pods -n vibesense` (Task 6.4).
+# shared that way, so it gets a hard cap. Sized from `kubectl top` during a demo
+# job (docs/measurements.md): requests a little above what was measured, limits
+# with room for a large video. Re-check under load with Prometheus (Phase 9).
 workers:
   ingestion:
     image: app
     command: ["python", "-m", "src.ingestion_service.app"]
     secretEnv: [DB_URL, YOUTUBE_API_KEY]
     resources:
-      requests: { cpu: 100m, memory: 192Mi }
-      limits: { memory: 384Mi }
+      requests: { cpu: 100m, memory: 256Mi } # measured 170Mi
+      limits: { memory: 512Mi } # holds a video's comments in memory
   ai:
     image: ai # the image's own CMD starts the AI worker
     secretEnv: [] # no database, no SMTP: it only reads and writes queues
     startupSeconds: 180 # loads the model before serving probes
     resources:
-      requests: { cpu: 500m, memory: 1536Mi }
-      limits: { memory: 2Gi }
+      requests: { cpu: 500m, memory: 768Mi } # measured 390Mi with the model loaded
+      limits: { memory: 1536Mi } # scoring a large batch needs headroom
   aggregation:
     image: app
     command: ["python", "-m", "src.aggregation_service.app"]
