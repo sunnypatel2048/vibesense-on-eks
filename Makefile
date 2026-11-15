@@ -12,7 +12,7 @@ TORCH_CPU = --extra-index-url https://download.pytorch.org/whl/cpu --emit-index-
 LOCK_ARGS ?=
 IMAGE_PLATFORM = --python-platform aarch64-unknown-linux-gnu
 
-.PHONY: lock lint test images push secrets secrets-check lint-infra lint-chart argocd dev-up dev-down dev-reset dev-logs
+.PHONY: lock lint test images push ruleset secrets secrets-check lint-infra lint-chart argocd dev-up dev-down dev-reset dev-logs
 
 lock:
 	$(LOCK) $(TORCH_CPU) --universal requirements/dev.in -o requirements/dev.txt
@@ -72,6 +72,10 @@ secrets-check:
 # Install Argo CD and apply the root app (after `terraform apply` + kubeconfig).
 argocd:
 	scripts/bootstrap-argocd.sh
+
+# Branch protection for main, from .github/rulesets/main.json.
+ruleset:
+	scripts/apply-ruleset.sh
 
 # Render the app chart with placeholder values (Argo CD supplies the real ones).
 CHART := deploy/charts/vibesense

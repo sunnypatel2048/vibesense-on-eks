@@ -96,3 +96,17 @@ jobs:
           -v "$PWD/scripts:/app/scripts:ro"
           -v "$PWD/tests/fixtures:/app/tests/fixtures:ro"
           vibesense-ai:ci python -m scripts.sentiment_golden --check
+
+  # The one check branch protection requires from this workflow
+  # (.github/rulesets/main.json). Requiring a single summary job means adding or
+  # renaming jobs never needs a ruleset change.
+  result:
+    name: ci passed
+    needs: [python, chart, images]
+    if: always() # report even when a needed job failed
+    runs-on: ubuntu-24.04
+    steps:
+      - name: All jobs succeeded
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: jq -e 'all(.[]; .result == "success")' <<<"$NEEDS"
