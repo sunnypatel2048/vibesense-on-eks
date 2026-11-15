@@ -16,6 +16,30 @@ variable "github_repository" {
   default     = "sunnypatel2048/vibesense-on-eks"
 }
 
+# Public, not secret: `gh api users/<owner> --jq .id` and
+# `gh api repos/<owner>/<repo> --jq .id`. Part of GitHub's OIDC subject claim.
+variable "github_owner_id" {
+  description = "Numeric ID of the repository owner's GitHub account."
+  type        = string
+  default     = "73701502"
+
+  validation {
+    condition     = can(regex("^[0-9]+$", var.github_owner_id))
+    error_message = "A numeric GitHub user ID."
+  }
+}
+
+variable "github_repository_id" {
+  description = "Numeric ID of the GitHub repository."
+  type        = string
+  default     = "1433402447"
+
+  validation {
+    condition     = can(regex("^[0-9]+$", var.github_repository_id))
+    error_message = "A numeric GitHub repository ID."
+  }
+}
+
 variable "alerts_email" {
   description = "Email for alarm and budget notifications. Set in terraform.tfvars (gitignored)."
   type        = string
