@@ -86,6 +86,7 @@ workers:
     env:
       SMTP_SERVER: smtp.gmail.com
       SMTP_PORT: "587"
+      SUPPRESS_EMAIL_DOMAINS: example.com # load-test jobs (src/load_test.py)
     secretEnv: [DB_URL, SMTP_USER, SMTP_PASS]
     autoscaling: { queue: notification, minReplicas: 1, maxReplicas: 3, queueLength: 10 }
     resources:

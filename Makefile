@@ -12,7 +12,7 @@ TORCH_CPU = --extra-index-url https://download.pytorch.org/whl/cpu --emit-index-
 LOCK_ARGS ?=
 IMAGE_PLATFORM = --python-platform aarch64-unknown-linux-gnu
 
-.PHONY: lock lint test images push ruleset secrets secrets-check lint-infra lint-chart argocd dev-up dev-down dev-reset dev-logs
+.PHONY: lock lint test images push ruleset load load-clean secrets secrets-check lint-infra lint-chart argocd dev-up dev-down dev-reset dev-logs
 
 lock:
 	$(LOCK) $(TORCH_CPU) --universal requirements/dev.in -o requirements/dev.txt
@@ -72,6 +72,16 @@ secrets-check:
 # Install Argo CD and apply the root app (after `terraform apply` + kubeconfig).
 argocd:
 	scripts/bootstrap-argocd.sh
+
+# Load test (Phase 8): synthetic jobs at example.com (never emailed) and
+# messages straight to the analysis queue, run as a Job in the cluster.
+JOBS ?= 20
+MESSAGES ?= 200
+load:
+	scripts/load-test.sh --jobs $(JOBS) --messages $(MESSAGES)
+
+load-clean:
+	scripts/load-test.sh --cleanup
 
 # Branch protection for main, from .github/rulesets/main.json.
 ruleset:
