@@ -13,10 +13,10 @@ registry: ""
 images:
   app:
     repository: vibesense-app
-    tag: d54be0961af7 # the commit the image was built from; CI updates it (Phase 7)
+    tag: adf4986f1a60 # the commit the image was built from; CI updates it (Phase 7)
   ai:
     repository: vibesense-ai
-    tag: d54be0961af7
+    tag: adf4986f1a60
 
 # Plain settings every workload gets. A workload's own `env` wins on a clash.
 env:
