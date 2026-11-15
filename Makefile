@@ -12,7 +12,7 @@ TORCH_CPU = --extra-index-url https://download.pytorch.org/whl/cpu --emit-index-
 LOCK_ARGS ?=
 IMAGE_PLATFORM = --python-platform aarch64-unknown-linux-gnu
 
-.PHONY: lock lint test images push ruleset load load-clean drill grafana secrets secrets-check lint-infra lint-chart argocd dev-up dev-down dev-reset dev-logs
+.PHONY: lock lint test images push ruleset load load-clean drill grafana trace secrets secrets-check lint-infra lint-chart argocd dev-up dev-down dev-reset dev-logs
 
 lock:
 	$(LOCK) $(TORCH_CPU) --universal requirements/dev.in -o requirements/dev.txt
@@ -68,6 +68,12 @@ secrets:
 
 secrets-check:
 	scripts/put-secrets.sh --check
+
+# One job's log lines from every stage, in time order.
+#   make trace JOB=<job_id>                     # from the running pods
+#   make trace JOB=<job_id> SOURCE=cloudwatch   # from CloudWatch Logs (includes removed pods)
+trace:
+	scripts/trace-job.sh $(JOB) $(if $(filter cloudwatch,$(SOURCE)),--cloudwatch,)
 
 # Grafana: the admin password, then a port-forward (Ctrl-C to stop).
 grafana:

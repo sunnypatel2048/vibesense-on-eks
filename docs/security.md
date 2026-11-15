@@ -147,6 +147,8 @@ there concern resources the module only creates when switched on.
 | CKV_AWS_118 (RDS enhanced monitoring) | `aws_db_instance.main` | Needs an extra IAM role; OS metrics bill through CloudWatch Logs. | Enable for OS-level metrics. |
 | CKV_AWS_353 (RDS Performance Insights) | `aws_db_instance.main` | Demo-scale database; application metrics go to Grafana (Phase 9). | CloudWatch Database Insights. |
 | CKV2_AWS_34 (SSM parameter encryption) | `aws_ssm_parameter.platform_config` | Identifiers (ARNs, a hostname, a port), not secrets; plain text keeps them readable when debugging. Secrets are SecureString under `/vibesense/secrets/`. | Same split; SecureString only for actual secrets. |
+| CKV_AWS_158 (CloudWatch log group KMS encryption) | `aws_cloudwatch_log_group.containers` | Encrypted at rest by CloudWatch already; a customer-managed key would be created and scheduled for deletion on every `make up`/`make down`. | Customer-managed KMS key, so access to the logs can be revoked at the key. |
+| CKV_AWS_338 (log retention of at least 1 year) | `aws_cloudwatch_log_group.containers` | Demo logs; one day covers a session, and the group is deleted on `make down`. | Retention set by policy (often 1 year or more), with older logs exported to S3. |
 | CKV_TF_1 (module source pinned to a commit hash) | `module.vpc` (platform) | Exact registry version pinned (`6.7.3`); upgrades are reviewed PRs. A Git commit source would lose readable versions and automated update PRs. | Commit-hash Git sources, updated by an automated dependency bot. |
 
 ## Secrets

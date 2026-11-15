@@ -1,0 +1,52 @@
+# Helm values for Fluent Bit (deploy/apps/fluent-bit.yaml).
+
+serviceAccount:
+  name: fluent-bit # matches the Pod Identity association (Terraform)
+
+# A DaemonSet: one pod per node, including Karpenter's tainted burst nodes,
+# where the AI worker runs.
+tolerations:
+  - key: vibesense/burst
+    operator: Exists
+    effect: NoSchedule
+
+resources:
+  requests:
+    cpu: 20m
+    memory: 48Mi
+  limits:
+    memory: 128Mi
+
+config:
+  # Only the app's namespace: the platform components' logs aren't worth
+  # paying CloudWatch ingestion for in a demo.
+  inputs: |
+    [INPUT]
+        Name              tail
+        Tag               kube.*
+        Path              /var/log/containers/*_vibesense_*.log
+        multiline.parser  docker, cri
+        Mem_Buf_Limit     10MB
+        Skip_Long_Lines   On
+
+  # Adds pod, namespace and labels, and lifts the app's JSON log fields
+  # (job_id, service, event, ...) to the top level, so CloudWatch can filter on
+  # them: { $.job_id = "..." }.
+  filters: |
+    [FILTER]
+        Name                kubernetes
+        Match               kube.*
+        Merge_Log           On
+        Keep_Log            Off
+        Annotations         Off
+
+  # Credentials come from the Pod Identity role; the region is set here, so
+  # nothing needs the node's metadata service.
+  outputs: |
+    [OUTPUT]
+        Name                cloudwatch_logs
+        Match               kube.*
+        region              us-east-1
+        log_group_name      /aws/eks/vibesense/containers
+        log_stream_prefix   pod.
+        auto_create_group   Off
