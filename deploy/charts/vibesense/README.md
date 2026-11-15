@@ -22,6 +22,21 @@ come from Terraform via Argo CD's cluster record; see
 `scripts/bootstrap-argocd.sh`. The chart refuses to render without them. To
 render it locally: `make lint-chart`.
 
+## Network policies
+
+Incoming traffic is denied by default. Two exceptions: the UI's port (8501),
+which the ALB forwards to, and the workers' metrics port (9000), only from
+Prometheus in the `monitoring` namespace. A compromised pod elsewhere in the
+cluster can't reach the workers.
+
+Outgoing traffic is not restricted. The workers call AWS APIs, the YouTube API
+and Gmail SMTP, and a NetworkPolicy filters by IP address, not domain name;
+those services' IPs change and are shared with much of the internet, so an IP
+allow-list would be either brittle or meaningless. The production answer is an
+egress proxy or a CNI that filters by DNS name (for example Cilium's FQDN
+policies), plus VPC endpoints so AWS traffic never leaves the VPC. Both cost
+more than this project's budget.
+
 ## Why the UI runs one replica
 
 Streamlit keeps each user's session in the memory of one pod and talks to the

@@ -106,6 +106,15 @@ ingress:
   # internet. Argo CD fills it in from the cluster's metadata (Task 6.3).
   allowedCidrs: ""
 
+# Incoming traffic: deny by default, then allow the UI's port and Prometheus
+# scraping the workers (templates/network-policies.yaml). Kubelet health
+# probes come from the node's own IP, which the VPC CNI's policy agent allows;
+# the Task 6.5 test confirms pods stay Ready.
+networkPolicy:
+  enabled: true
+  prometheus:
+    namespace: monitoring # kube-prometheus-stack (Phase 9)
+
 migration:
   enabled: true
   resources:
