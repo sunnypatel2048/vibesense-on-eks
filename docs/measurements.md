@@ -70,7 +70,7 @@ pending pods as it sees them.
 | What | Result |
 | --- | --- |
 | `make up`: nothing → UI answering through the ALB | 20 m 53 s (Terraform 12 m 0 s; all 12 Argo CD apps healthy at 20 m 52 s) |
-| `make down`: everything → zero, with a clean leftovers report | 14–16 min; all 16 leftover checks `ok` on three consecutive cycles |
+| `make down`: everything → zero, with a clean leftovers report | 14–16 min; all 16 leftover checks `ok` on three consecutive cycles (a fourth hit the issue below, now fixed) |
 | Network policy: another pod → a worker's port 9000 | Blocked; all pods stayed Ready |
 
 Load test (`make load JOBS=20 MESSAGES=200`), AI worker starting at 0 pods:
@@ -97,6 +97,15 @@ Alertmanager → SNS within a minute, and `make trace` followed one demo job
 from the UI through ingestion, AI, aggregation and notification, from the pods
 and from CloudWatch Logs. (After Fluent Bit was set to read new log files from the start, CloudWatch
 also keeps the AI worker's lines from freshly launched burst nodes; confirmed on the third cycle.)
+
+Teardown, fourth cycle: `terraform destroy` of the cluster failed after
+15 minutes with `DependencyViolation` on the node security group. A network
+interface the VPC CNI had made for pod IPs (`aws-K8S-<instance>`) was left
+`available` after its node terminated, and it still held that security group.
+The stray cleanup ran only after the cluster step, so it never got the chance.
+`make down` now destroys the node groups first, removes stray interfaces, then
+destroys the cluster. Rerun after the fix: cleanup finished in 3 m 0 s and all
+16 leftover checks were `ok`.
 
 ![VibeSense pipeline dashboard during a load test: throughput per stage](images/grafana-pipeline.png)
 
