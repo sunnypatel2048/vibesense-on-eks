@@ -70,8 +70,14 @@ module "eks" {
     system = {
       ami_type      = "AL2023_ARM_64_STANDARD"
       capacity_type = "SPOT"
-      # Three types: Spot capacity rarely runs out for all of them at once.
-      instance_types = ["t4g.large", "m6g.large", "m7g.large"]
+      # Every 2-vCPU Graviton type with at least 8 GiB. With only three types,
+      # Spot capacity ran out for all of them in both zones and the node group
+      # waited 19 minutes (CloudTrail: InsufficientInstanceCapacity, 2026-11-16).
+      # Each extra type is another Spot pool to draw from; all cost cents an hour.
+      instance_types = [
+        "t4g.large", "m6g.large", "m6gd.large", "m7g.large", "m7gd.large",
+        "m8g.large", "r6g.large", "r7g.large", "r8g.large",
+      ]
 
       min_size     = 2
       desired_size = 2
