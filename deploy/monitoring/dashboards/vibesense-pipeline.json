@@ -8,7 +8,7 @@
   "timezone": "browser",
   "editable": true,
   "schemaVersion": 39,
-  "version": 3,
+  "version": 4,
   "refresh": "10s",
   "time": {
     "from": "now-30m",
@@ -148,7 +148,7 @@
       "id": 3,
       "type": "stat",
       "title": "Analysis queue depth",
-      "description": "Messages waiting + in flight on the analysis queue, as read by KEDA.",
+      "description": "Messages waiting + in flight on the analysis queue, as read by KEDA. (KEDA's own namespace label arrives as exported_namespace: Prometheus keeps namespace for the scraped pod's namespace, keda.)",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -165,7 +165,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "max(keda_scaler_metrics_value{namespace=\"vibesense\", scaledObject=\"ai\"}) or vector(0)",
+          "expr": "max(keda_scaler_metrics_value{exported_namespace=\"vibesense\", scaledObject=\"ai\"}) or vector(0)",
           "legendFormat": "",
           "refId": "A",
           "range": true
@@ -561,7 +561,7 @@
       "id": 12,
       "type": "timeseries",
       "title": "Analysis queue depth vs. AI pods",
-      "description": "KEDA adds AI pods as the queue grows (one per 5 messages, up to 6). Pending pods are waiting for Karpenter's node.",
+      "description": "KEDA adds AI pods as the queue grows (one per 5 messages, up to 6). Pending pods are waiting for Karpenter's node. (KEDA's own namespace label arrives as exported_namespace: Prometheus keeps namespace for the scraped pod's namespace, keda.)",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -578,7 +578,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "max(keda_scaler_metrics_value{namespace=\"vibesense\", scaledObject=\"ai\"})",
+          "expr": "max(keda_scaler_metrics_value{exported_namespace=\"vibesense\", scaledObject=\"ai\"})",
           "legendFormat": "queue depth",
           "refId": "A",
           "range": true
@@ -649,7 +649,7 @@
       "id": 13,
       "type": "timeseries",
       "title": "Queue depth per queue",
-      "description": "Waiting + in-flight messages for each worker's queue, as KEDA reads it.",
+      "description": "Waiting + in-flight messages for each worker's queue, as KEDA reads it. (KEDA's own namespace label arrives as exported_namespace: Prometheus keeps namespace for the scraped pod's namespace, keda.)",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -666,7 +666,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "max by (scaledObject) (keda_scaler_metrics_value{namespace=\"vibesense\"})",
+          "expr": "max by (scaledObject) (keda_scaler_metrics_value{exported_namespace=\"vibesense\"})",
           "legendFormat": "{{scaledObject}}",
           "refId": "A",
           "range": true
