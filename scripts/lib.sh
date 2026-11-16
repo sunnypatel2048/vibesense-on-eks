@@ -21,4 +21,14 @@ wait_for() {
   done
 }
 
+# log_to <name>: also copy everything this script prints to logs/<name>-<time>.log
+# (gitignored), so a long run can be searched afterwards, e.g.
+#   grep -E "complete after|deleted stray" logs/down-*.log
+log_to() {
+  mkdir -p "$ROOT/logs"
+  LOG="$ROOT/logs/$1-$(date +%Y%m%d-%H%M%S).log"
+  exec > >(tee -a "$LOG") 2>&1
+  note "full log: logs/${LOG##*/}"
+}
+
 cluster_exists() { aws eks describe-cluster --region "$REGION" --name "$CLUSTER" >/dev/null 2>&1; }

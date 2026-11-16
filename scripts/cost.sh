@@ -2,16 +2,28 @@
 # This month's AWS spend so far, by service (Cost Explorer). Billing data lags
 # 8-24 hours. Each Cost Explorer request costs $0.01; this makes one.
 #   make cost
+#
+# Shows usage before credits: an account with AWS credits (e.g. the free plan's
+# sign-up credits) is billed $0, which says nothing about what the project costs.
 set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 
 start="$(date +%Y-%m-01)"
 end="$(date -v+1d +%Y-%m-%d 2>/dev/null || date -d tomorrow +%Y-%m-%d)" # macOS or GNU date
 aws ce get-cost-and-usage --time-period Start="$start",End="$end" --granularity MONTHLY \
-  --metrics UnblendedCost --group-by Type=DIMENSION,Key=SERVICE --output json \
-  | jq -r --arg start "$start" '.ResultsByTime[0].Groups
-      | map({service: .Keys[0], usd: (.Metrics.UnblendedCost.Amount | tonumber)})
-      | map(select(.usd >= 0.005)) | sort_by(-.usd)
-      | (.[] | "  $\(.usd * 100 | round / 100)\t\(.service)"),
+  --metrics UnblendedCost --group-by Type=DIMENSION,Key=SERVICE Type=DIMENSION,Key=RECORD_TYPE \
+  --output json \
+  | jq -r --arg start "$start" '
+      def r2: . * 100 | round / 100;
+      [.ResultsByTime[].Groups[]
+        | {service: .Keys[0], type: .Keys[1], usd: (.Metrics.UnblendedCost.Amount | tonumber)}]
+      | (map(select(.type != "Credit" and .type != "Refund"))) as $usage
+      | (map(select(.type == "Credit" or .type == "Refund")) | map(.usd) | add // 0) as $credits
+      | ($usage | map(.usd) | add // 0) as $total
+      | ($usage | group_by(.service) | map({service: .[0].service, usd: (map(.usd) | add)})
+          | map(select(.usd >= 0.005)) | sort_by(-.usd)
+          | .[] | "  $\(.usd | r2)\t\(.service)"),
         "  ----",
-        "  $\(map(.usd) | add // 0 | . * 100 | round / 100)\tTotal, \($start) to today"' 
+        "  $\($total | r2)\tUsage before credits, \($start) to today",
+        "  $\($credits | r2)\tCredits and refunds",
+        "  $\(($total + $credits) | r2)\tBilled"'

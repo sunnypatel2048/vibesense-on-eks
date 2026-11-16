@@ -20,3 +20,6 @@ tfplan
 
 # Personal working notes (session runbooks, scratch); not part of the project
 notes/
+
+# Output of make up / make down (scripts/lib.sh log_to)
+logs/

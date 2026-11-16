@@ -17,6 +17,7 @@
 # Safe to rerun after a partial failure: steps that find nothing skip ahead.
 set -euo pipefail
 source "$(dirname "$0")/lib.sh"
+log_to down
 
 aws sts get-caller-identity >/dev/null || fail "No AWS credentials."
 
