@@ -8,7 +8,7 @@
   "timezone": "browser",
   "editable": true,
   "schemaVersion": 39,
-  "version": 2,
+  "version": 3,
   "refresh": "10s",
   "time": {
     "from": "now-30m",
@@ -436,7 +436,7 @@
       "id": 9,
       "type": "timeseries",
       "title": "Errors per stage",
-      "description": "Failed message handlings per second. Any sustained value means messages are heading for a DLQ.",
+      "description": "Failed message handlings per second. Any sustained value means messages are heading for a DLQ. Shows 0 per worker when nothing fails.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -453,7 +453,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum by (worker) (rate(vibesense_messages_total{result=\"failure\"}[5m]))",
+          "expr": "sum by (worker) (rate(vibesense_messages_total{result=\"failure\"}[5m])) or (sum by (worker) (rate(vibesense_messages_total[5m])) * 0)",
           "legendFormat": "{{worker}}",
           "refId": "A",
           "range": true

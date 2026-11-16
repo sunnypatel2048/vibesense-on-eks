@@ -28,6 +28,12 @@ config:
         multiline.parser  docker, cri
         Mem_Buf_Limit     10MB
         Skip_Long_Lines   On
+        # A new burst node runs the AI pod and this DaemonSet's pod at the same
+        # time. Reading files from the end (the default) lost the AI pod's
+        # first lines; from the start, with read positions kept in a database
+        # on the node so a restart doesn't ship lines twice.
+        Read_from_Head    On
+        DB                /var/log/flb_vibesense.db
 
   # Adds pod, namespace and labels, and lifts the app's JSON log fields
   # (job_id, service, event, ...) to the top level, so CloudWatch can filter on
