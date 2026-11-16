@@ -54,7 +54,7 @@ spec:
           values: ["spot"]
         - key: karpenter.k8s.aws/instance-family
           operator: In
-          values: ["t4g", "m7g", "c7g"] # several families: Spot rarely runs out of all
+          values: ["t4g", "m6g", "m7g", "m8g", "c6g", "c7g", "c8g"] # many families: more Spot pools
         - key: karpenter.k8s.aws/instance-size
           operator: In
           values: ["medium", "large", "xlarge"]
