@@ -64,3 +64,39 @@ Load test: 200 analysis messages × 50 comments (`make load JOBS=20 MESSAGES=200
 Karpenter launched three small nodes rather than one larger one because KEDA
 added pods in steps (1, then 4, then 6) and Karpenter provisions each batch of
 pending pods as it sees them.
+
+## One-command lifecycle and observability (2026-11-15, Phase 9–10 session)
+
+| What | Result |
+| --- | --- |
+| `make up`: nothing → UI answering through the ALB | 20 m 53 s (Terraform 12 m 0 s; all 12 Argo CD apps healthy at 20 m 52 s) |
+| `make down`: everything → zero, with a clean leftovers report | 16 m 10 s; all 16 leftover checks `ok` |
+| Network policy: another pod → a worker's port 9000 | Blocked; all pods stayed Ready |
+
+Load test (`make load JOBS=20 MESSAGES=200`), AI worker starting at 0 pods:
+
+| What | Result |
+| --- | --- |
+| 200 messages fully processed (scored, aggregated, notified) | 202 s; none lost, none doubled (exactly-once check on the database rows) |
+| Peak AI pods / Karpenter nodes | 6 pods on 2 × t4g.large Spot |
+| Last message done → AI pods at 0 | 159 s (KEDA cooldown 120 s) |
+| Last message done → burst nodes removed | 315 s (consolidation after the pods leave) |
+| DLQ messages | 0 on all three queues |
+| End-to-end latency SLO (95% within 5 min) | 99.4% within target over 30 min, across the load test and drill |
+
+Spot interruption drill (`make drill`): a burst node running 3 AI pods drained mid-load.
+
+| What | Result |
+| --- | --- |
+| Eviction finished | 63 s |
+| All AI pods Ready again | 74 s after the drain started, on a new m7g.large Spot node |
+| Messages | 200/200 processed in 437 s; none lost, none doubled; DLQs 0 |
+
+Alerting and logs: a test alert labelled `team=vibesense` reached email through
+Alertmanager → SNS within a minute, and `make trace` followed one demo job
+from the UI through ingestion, AI, aggregation and notification, from the pods
+and from CloudWatch Logs.
+
+![VibeSense pipeline dashboard during a load test: throughput per stage](images/grafana-pipeline.png)
+
+![Autoscaling and SLO rows: AI pods pending then ready, burst nodes, end-to-end latency](images/grafana-autoscaling-slo.png)
