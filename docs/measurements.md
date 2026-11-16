@@ -107,6 +107,16 @@ The stray cleanup ran only after the cluster step, so it never got the chance.
 destroys the cluster. Rerun after the fix: cleanup finished in 3 m 0 s and all
 16 leftover checks were `ok`.
 
+Fifth cycle (2026-11-16): teardown with burst nodes still draining was clean
+in 15 m 18 s, and CloudTrail shows step 5 deleting the stray interface the CNI
+had failed to delete three times. `make up` took 47 m 16 s instead of ~21: the
+system node group waited 19 minutes because every launch failed with
+`InsufficientInstanceCapacity` ("no Spot capacity available") for all three
+instance types in both zones. The node group now accepts nine 2-vCPU Graviton
+types with at least 8 GiB, and Karpenter seven families. Spot placement score
+for 2 nodes at the time of the change: use1-az1 1 → 3, use1-az2 9 → 9. The
+load test on that cycle: 200/200 in 161 s.
+
 ![VibeSense pipeline dashboard during a load test: throughput per stage](images/grafana-pipeline.png)
 
 ![Autoscaling and SLO rows: queue depth jumps to 200, AI pods go pending while Karpenter adds a node, then ready as the queue drains](images/grafana-autoscaling-slo.png)
