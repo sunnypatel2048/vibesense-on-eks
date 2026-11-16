@@ -26,7 +26,7 @@ spec:
     httpTokens: required
     httpPutResponseHopLimit: 1
   tags:
-    Project: vibesense # found by the leftovers check (Phase 10)
+    Project: vibesense # found by scripts/leftovers.sh
 ---
 apiVersion: karpenter.sh/v1
 kind: NodePool

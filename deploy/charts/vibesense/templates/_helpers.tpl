@@ -15,7 +15,7 @@ app.kubernetes.io/component: {{ .component }}
 {{/* Full image reference. Args: dict "root" $ "image" "app"|"ai". */}}
 {{- define "vibesense.image" -}}
 {{- $img := index .root.Values.images .image | required (printf "images.%s is not defined" .image) -}}
-{{- $registry := required "registry is required (Argo CD sets it, Task 6.3)" .root.Values.registry -}}
+{{- $registry := required "registry is required (Argo CD sets it; see docs/adr/0016-gitops-bridge.md)" .root.Values.registry -}}
 {{- $tag := required (printf "images.%s.tag is required" .image) $img.tag -}}
 {{- printf "%s/%s:%s" $registry $img.repository $tag -}}
 {{- end }}

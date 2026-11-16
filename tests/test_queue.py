@@ -151,7 +151,7 @@ def test_batch_size_must_be_between_1_and_10(batch_size):
         Consumer(QUEUE, lambda p: None, batch_size=batch_size)
 
 
-# --- Metrics and health state (Task 1.8) ---------------------------------------
+# --- Metrics and health state ---------------------------------------------------
 
 from prometheus_client import REGISTRY  # noqa: E402
 
@@ -194,7 +194,7 @@ def test_consumer_is_busy_only_while_handling(sqs):
     assert consumer.has_polled
 
 
-# --- Log context (Task 1.9) ----------------------------------------------------
+# --- Log context ----------------------------------------------------------------
 
 import io  # noqa: E402
 import logging  # noqa: E402

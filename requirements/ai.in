@@ -1,6 +1,6 @@
 # The `ai` image: the sentiment worker. No database driver needed.
 -r base.in
-# Security floors (Task 2.6, see docs/security.md); `make lock` picks the newest
+# Security floors (see docs/security.md); `make lock` picks the newest
 # release above them. Any change here must pass scripts/sentiment_golden.py --check.
 # torch is pinned exactly: on Linux the `+cpu` build exists only on PyTorch's
 # CPU index, so the CUDA build from PyPI (~8 GB of NVIDIA libraries) can't be

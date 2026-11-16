@@ -24,7 +24,7 @@ Re-measure when something here changes; keep the date.
 | AI worker restart → healthy | < 10 s | Model loads from the image, no download (local compose) |
 | Job created → first email | 1–2 s | Local compose with Mailpit |
 
-## End to end on EKS (2026-11-14, Task 6.4)
+## End to end on EKS (2026-11-14)
 
 | What | Result |
 | --- | --- |
@@ -43,7 +43,7 @@ requests:
 | notification | 1m | 79Mi |
 | aggregation | 1m | 77Mi |
 
-## Delivery and autoscaling on EKS (2026-11-15, Phase 8 session)
+## Delivery and autoscaling on EKS (2026-11-15)
 
 | What | Result |
 | --- | --- |
@@ -65,7 +65,7 @@ Karpenter launched three small nodes rather than one larger one because KEDA
 added pods in steps (1, then 4, then 6) and Karpenter provisions each batch of
 pending pods as it sees them.
 
-## One-command lifecycle and observability (2026-11-15, Phase 9–10 session)
+## One-command lifecycle and observability (2026-11-15, second session)
 
 | What | Result |
 | --- | --- |

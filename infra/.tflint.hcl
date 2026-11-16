@@ -2,7 +2,7 @@
 # After changing a plugin version, run `tflint --init --config infra/.tflint.hcl`.
 
 config {
-  call_module_type = "local" # also lint our own modules (infra/modules, Phase 4)
+  call_module_type = "local" # also lint our own modules (infra/modules)
 }
 
 # Terraform language rules: unused declarations, version constraints, naming, ...

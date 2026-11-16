@@ -1,4 +1,4 @@
-# The two budgets created by hand in Task 0.3, adopted into Terraform with
+# The two budgets created by hand in the console at the start, adopted into Terraform with
 # import blocks (config first generated with `terraform plan -generate-config-out`,
 # then tidied). Both track unblended cost with default charge types.
 

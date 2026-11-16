@@ -25,7 +25,7 @@ resource "aws_db_instance" "main" {
   #checkov:skip=CKV_AWS_129:Log exports are billed per GB and their log groups outlive the instance
   #checkov:skip=CKV2_AWS_30:Query logging needs log exports and would record user email addresses
   #checkov:skip=CKV_AWS_118:Enhanced monitoring needs an extra IAM role and bills through CloudWatch Logs
-  #checkov:skip=CKV_AWS_353:Demo-scale database; application metrics go to Grafana (Phase 9)
+  #checkov:skip=CKV_AWS_353:Demo-scale database; application metrics go to Grafana
   identifier = var.project
 
   engine            = "postgres"

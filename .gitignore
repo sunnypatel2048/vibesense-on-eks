@@ -2,7 +2,6 @@
 .venv
 .vscode
 __pycache__
-celerybeat-schedule.db
 .pytest_cache/
 .terraform/
 *.tfstate

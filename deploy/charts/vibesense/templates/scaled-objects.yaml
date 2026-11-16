@@ -7,7 +7,7 @@ Sync wave 2: after the Deployments they scale (wave 1).
 {{- $hasAutoscaling := false }}
 {{- range $name, $w := .Values.workers }}{{ if $w.autoscaling }}{{ $hasAutoscaling = true }}{{ end }}{{ end }}
 {{- if $hasAutoscaling }}
-{{- $account := required "awsAccountId is required (Argo CD sets it, Task 6.3)" .Values.awsAccountId }}
+{{- $account := required "awsAccountId is required (Argo CD sets it; see docs/adr/0016-gitops-bridge.md)" .Values.awsAccountId }}
 apiVersion: keda.sh/v1alpha1
 kind: TriggerAuthentication
 metadata:

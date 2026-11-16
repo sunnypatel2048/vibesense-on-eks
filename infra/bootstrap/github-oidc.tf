@@ -29,7 +29,7 @@ data "aws_iam_policy_document" "github_trust" {
     push = ["${local.repo_sub_prefix}:ref:refs/heads/main"]
     plan = [
       "${local.repo_sub_prefix}:pull_request",        # terraform plan on PRs
-      "${local.repo_sub_prefix}:ref:refs/heads/main", # nightly leftovers check (Task 10.4)
+      "${local.repo_sub_prefix}:ref:refs/heads/main", # nightly leftovers check (.github/workflows/nightly.yml)
     ]
   }
 

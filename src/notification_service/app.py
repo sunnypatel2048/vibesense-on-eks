@@ -138,7 +138,7 @@ def smtp_sender(settings: SmtpSettings) -> EmailSender:
 def record_end_to_end(payload: dict[str, Any]) -> None:
     """Observe how long this interval took from entering the pipeline to now.
     Called once per interval, when it completes; not for redeliveries."""
-    if enqueued := payload.get("enqueued_at"):  # absent on messages from before Task 9.4
+    if enqueued := payload.get("enqueued_at"):  # absent on messages published before the SLO existed
         seconds = (datetime.now(UTC) - datetime.fromisoformat(enqueued)).total_seconds()
         END_TO_END_SECONDS.observe(max(seconds, 0.0))
 

@@ -2,7 +2,7 @@
 
 global:
   # Platform components stay on the stable system nodes, not Karpenter's
-  # short-lived burst nodes (Phase 8).
+  # short-lived burst nodes (deploy/cluster-config/karpenter.yaml).
   nodeSelector:
     vibesense/node-role: system
 

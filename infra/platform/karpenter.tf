@@ -1,4 +1,4 @@
-# Karpenter's AWS side, from the EKS module's karpenter sub-module (Phase 8):
+# Karpenter's AWS side, from the EKS module's karpenter sub-module:
 #   - the controller's IAM role, bound to kube-system/karpenter by Pod Identity
 #   - the IAM role for the nodes it launches, with an EKS access entry
 #   - an SQS queue + EventBridge rules for Spot interruption warnings, so

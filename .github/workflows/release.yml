@@ -116,7 +116,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: main
-          # A deploy key, because branch protection (Task 7.4) blocks direct
+          # A deploy key, because branch protection (.github/rulesets/main.json) blocks direct
           # pushes to main; the key is its only bypass. docs/security.md.
           ssh-key: ${{ secrets.RELEASE_DEPLOY_KEY }}
 

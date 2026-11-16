@@ -2,7 +2,7 @@
 #
 # Runs on every PR, but its jobs only do work when infra/ (or this file)
 # changed. A skipped job counts as passed, so these checks can be required in
-# branch protection (Task 7.4) without blocking PRs that don't touch infra.
+# branch protection (.github/rulesets/main.json) without blocking PRs that don't touch infra.
 #
 # Plans use vibesense-ci-plan through OIDC: read-only, plus the state lock. CI
 # can't apply anything; there is no apply role (docs/security.md).

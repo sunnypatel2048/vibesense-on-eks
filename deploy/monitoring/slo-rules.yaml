@@ -1,4 +1,4 @@
-# The pipeline's service level objective (Task 9.4).
+# The pipeline's service level objective (docs/adr/0011-observability-and-slo.md).
 #
 #   95% of intervals are notified within 5 minutes of their comments entering
 #   the pipeline.

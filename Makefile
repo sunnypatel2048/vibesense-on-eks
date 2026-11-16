@@ -71,7 +71,7 @@ push:
 	done
 	@echo "Pushed tag $(GIT_SHA). Set images.app.tag and images.ai.tag to it in deploy/charts/vibesense/values.yaml."
 
-# Terraform checks, the same three CI runs on infra PRs (Task 7.2).
+# Terraform checks, the same three CI runs on infra PRs (.github/workflows/infra.yml).
 TFLINT = tflint --config "$(CURDIR)/infra/.tflint.hcl"
 
 lint-infra:
@@ -102,7 +102,7 @@ grafana:
 argocd:
 	scripts/bootstrap-argocd.sh
 
-# Load test (Phase 8): synthetic jobs at example.com (never emailed) and
+# Load test: synthetic jobs at example.com (never emailed) and
 # messages straight to the analysis queue, run as a Job in the cluster.
 JOBS ?= 20
 MESSAGES ?= 200

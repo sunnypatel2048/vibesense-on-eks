@@ -13,7 +13,7 @@ output "ecr_repositories" {
 }
 
 output "ci_role_arns" {
-  description = "Set as GitHub Actions secrets AWS_PUSH_ROLE_ARN and AWS_PLAN_ROLE_ARN (Phase 7)."
+  description = "Set as GitHub Actions secrets AWS_PUSH_ROLE_ARN and AWS_PLAN_ROLE_ARN (README.md, section CI on your fork)."
   value = {
     push = aws_iam_role.ci_push.arn
     plan = aws_iam_role.ci_plan.arn

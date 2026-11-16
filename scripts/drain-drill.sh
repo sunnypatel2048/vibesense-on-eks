@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Spot interruption drill (Task 8.5), measured end to end:
+# Spot interruption drill, measured end to end:
 #   1. starts a load test (200 messages) in the background
 #   2. waits until a burst node runs at least 2 AI pods mid-load
 #   3. drains that node, as Karpenter does on a Spot interruption notice
