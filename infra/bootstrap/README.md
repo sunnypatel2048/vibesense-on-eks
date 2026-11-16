@@ -1,7 +1,8 @@
 # Bootstrap layer
 
 Persistent AWS resources that outlive every `make down`: the Terraform state
-bucket now, and later ECR repositories, CI roles, SSM parameters and the budget.
+bucket, the ECR repositories, the GitHub Actions OIDC roles, the alerts SNS topic
+and the AWS Budgets. Applied by hand, rarely; CI only plans it.
 
 ## First-time setup (the state bucket bootstraps itself)
 

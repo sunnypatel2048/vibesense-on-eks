@@ -11,7 +11,7 @@ vulnerabilities in OS packages and Python packages.
 | OS package, fix available | Bump the pinned base image digest in the `Dockerfile`, rebuild. |
 | No fix available | Accept, with a reason and a review date, in this file. |
 
-The CI gate (Phase 7) runs Trivy with `--ignore-unfixed --severity HIGH,CRITICAL`
+The CI gate (`ci.yml` and `release.yml`) runs Trivy with `--ignore-unfixed --severity HIGH,CRITICAL`
 and fails the build on any finding that **has** a fix. When an accepted finding
 gets a fix upstream, the gate starts failing and forces the upgrade.
 
@@ -59,7 +59,7 @@ scan time. **Review by 2027-01-31**, or sooner if the CI gate reports a fix.
 
 | Source | CVEs | Why accepted |
 | --- | --- | --- |
-| util-linux (`mount`, `login`, `libmount1`, `libblkid1`, …) | CVE-2026-76642, CVE-2026-78408, CVE-2026-78409, CVE-2026-78410 | Local privilege escalation through mount helpers, `nsenter` and bind mounts. The containers run as non-root UID 10001 and never invoke these tools; pods drop all capabilities and disallow privilege escalation (Phase 6). |
+| util-linux (`mount`, `login`, `libmount1`, `libblkid1`, …) | CVE-2026-76642, CVE-2026-78408, CVE-2026-78409, CVE-2026-78410 | Local privilege escalation through mount helpers, `nsenter` and bind mounts. The containers run as non-root UID 10001 and never invoke these tools; pods drop all capabilities and disallow privilege escalation (deploy/charts/vibesense). |
 | acl (`libacl1`) | CVE-2026-54369 | Symlink traversal by a privileged caller of libacl. Nothing in the images calls it as root. |
 | ncurses (`libtinfo6`, `libncursesw6`, …) | CVE-2025-69720 | Buffer overflow on crafted terminal data. The services never render untrusted input to a terminal. |
 | systemd (`libsystemd0`, `libudev1`) | CVE-2026-16742 | Privilege escalation in `systemd-homed`, which isn't running in a container. |
@@ -109,7 +109,7 @@ credentials that expire after one hour. No access keys are stored in GitHub.
 - `ci.yml` runs with `contents: read` only and no OIDC permission, so pull
   request checks can't obtain AWS credentials at all.
 - The repository is public, and so are its Actions logs and PR comments. Values
-  that identify the account or me are GitHub **secrets**, which GitHub masks
+  that identify the account or its owner are GitHub **secrets**, which GitHub masks
   wherever they appear in a log: the role ARNs, the state bucket name, the alert
   email and the admin CIDRs (`infra.yml` also masks each IP on its own). The
   credentials action masks the account ID. The plan comment on a PR lists only
@@ -145,7 +145,7 @@ there concern resources the module only creates when switched on.
 | CKV_AWS_129 (RDS log exports) | `aws_db_instance.main` | Billed per GB, and RDS-created log groups outlive the instance, piling up across `make up`/`make down`. | Export PostgreSQL logs with a retention period. |
 | CKV2_AWS_30 (PostgreSQL query logging) | `aws_db_instance.main` | Needs log exports plus a custom parameter group, and logged statements would contain users' email addresses. | Log slow queries and errors, not every statement. |
 | CKV_AWS_118 (RDS enhanced monitoring) | `aws_db_instance.main` | Needs an extra IAM role; OS metrics bill through CloudWatch Logs. | Enable for OS-level metrics. |
-| CKV_AWS_353 (RDS Performance Insights) | `aws_db_instance.main` | Demo-scale database; application metrics go to Grafana (Phase 9). | CloudWatch Database Insights. |
+| CKV_AWS_353 (RDS Performance Insights) | `aws_db_instance.main` | Demo-scale database; application metrics go to Grafana. | CloudWatch Database Insights. |
 | CKV2_AWS_34 (SSM parameter encryption) | `aws_ssm_parameter.platform_config` | Identifiers (ARNs, a hostname, a port), not secrets; plain text keeps them readable when debugging. Secrets are SecureString under `/vibesense/secrets/`. | Same split; SecureString only for actual secrets. |
 | CKV_AWS_158 (CloudWatch log group KMS encryption) | `aws_cloudwatch_log_group.containers` | Encrypted at rest by CloudWatch already; a customer-managed key would be created and scheduled for deletion on every `make up`/`make down`. | Customer-managed KMS key, so access to the logs can be revoked at the key. |
 | CKV_AWS_338 (log retention of at least 1 year) | `aws_cloudwatch_log_group.containers` | Demo logs; one day covers a session, and the group is deleted on `make down`. | Retention set by policy (often 1 year or more), with older logs exported to S3. |
@@ -166,10 +166,10 @@ secret would end up in plain text in the state bucket.
   don't appear in shell history or the process list.
 - `vibesense-ci-plan` has an explicit deny on reading `/vibesense/secrets/*` and
   on by-path reads. Terraform never reads these parameters, so no plan breaks.
-- Non-secret configuration that Terraform creates (Phase 4) lives under
+- Non-secret configuration that Terraform creates lives under
   `/vibesense/platform/`, outside the denied path.
 - In the cluster, only the External Secrets Operator's role may read
-  `/vibesense/secrets/*` (Task 4.7).
+  `/vibesense/secrets/*`.
 
 ## Package indexes
 

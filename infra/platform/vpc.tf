@@ -28,7 +28,7 @@ module "vpc" {
   enable_dns_support   = true
 
   public_subnet_tags = {
-    "kubernetes.io/role/elb" = "1"         # AWS Load Balancer Controller puts the ALB here (Phase 5)
-    "karpenter.sh/discovery" = var.project # Karpenter launches nodes here (Phase 8)
+    "kubernetes.io/role/elb" = "1"         # AWS Load Balancer Controller puts the ALB here
+    "karpenter.sh/discovery" = var.project # Karpenter launches nodes here
   }
 }

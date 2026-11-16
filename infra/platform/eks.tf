@@ -45,12 +45,12 @@ module "eks" {
 
   addons = {
     # Before the nodes, so they start fully networked. Network policy
-    # enforcement is used in Task 6.5.
+    # enforcement backs the chart's network policies.
     vpc-cni = {
       before_compute       = true
       configuration_values = jsonencode({ enableNetworkPolicy = "true" })
     }
-    # Hands pods their IAM credentials (EKS Pod Identity, Task 4.7).
+    # Hands pods their IAM credentials (EKS Pod Identity, docs/adr/0009-pod-identity-per-workload.md).
     eks-pod-identity-agent = {
       before_compute = true
     }
@@ -66,7 +66,7 @@ module "eks" {
 
   eks_managed_node_groups = {
     # Hosts Argo CD, the controllers and Karpenter. Karpenter adds burst
-    # capacity in Phase 8.
+    # capacity (karpenter.tf).
     system = {
       ami_type      = "AL2023_ARM_64_STANDARD"
       capacity_type = "SPOT"

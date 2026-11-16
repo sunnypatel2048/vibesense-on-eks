@@ -69,7 +69,8 @@ def handle_ingest(
         newest = max(new_comments, key=lambda c: parse_published_at(c["published_at"]))
         # Publish first, then record progress. If the save fails, the retry
         # republishes the same batch with the same interval_timestamp, which
-        # aggregation de-duplicates (Task 1.6). The reverse order could lose comments.
+        # aggregation de-duplicates (docs/adr/0018-at-least-once-idempotent-writes.md).
+        # The reverse order could lose comments.
         publish_to(
             next_queue,
             {

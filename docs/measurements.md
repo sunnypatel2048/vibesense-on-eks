@@ -24,7 +24,7 @@ Re-measure when something here changes; keep the date.
 | AI worker restart → healthy | < 10 s | Model loads from the image, no download (local compose) |
 | Job created → first email | 1–2 s | Local compose with Mailpit |
 
-## End to end on EKS (2026-11-14, Task 6.4)
+## End to end on EKS (2026-11-14)
 
 | What | Result |
 | --- | --- |
@@ -43,7 +43,7 @@ requests:
 | notification | 1m | 79Mi |
 | aggregation | 1m | 77Mi |
 
-## Delivery and autoscaling on EKS (2026-11-15, Phase 8 session)
+## Delivery and autoscaling on EKS (2026-11-15)
 
 | What | Result |
 | --- | --- |
@@ -65,12 +65,12 @@ Karpenter launched three small nodes rather than one larger one because KEDA
 added pods in steps (1, then 4, then 6) and Karpenter provisions each batch of
 pending pods as it sees them.
 
-## One-command lifecycle and observability (2026-11-15, Phase 9–10 session)
+## One-command lifecycle and observability (2026-11-15, second session)
 
 | What | Result |
 | --- | --- |
 | `make up`: nothing → UI answering through the ALB | 20 m 53 s (Terraform 12 m 0 s; all 12 Argo CD apps healthy at 20 m 52 s) |
-| `make down`: everything → zero, with a clean leftovers report | 16 m 10 s, then 14 m 07 s; all 16 leftover checks `ok` both times |
+| `make down`: everything → zero, with a clean leftovers report | 14–16 min; all 16 leftover checks `ok` on three consecutive cycles |
 | Network policy: another pod → a worker's port 9000 | Blocked; all pods stayed Ready |
 
 Load test (`make load JOBS=20 MESSAGES=200`), AI worker starting at 0 pods:
@@ -95,7 +95,8 @@ Spot interruption drill (`make drill`): a burst node running 3 AI pods drained m
 Alerting and logs: a test alert labelled `team=vibesense` reached email through
 Alertmanager → SNS within a minute, and `make trace` followed one demo job
 from the UI through ingestion, AI, aggregation and notification, from the pods
-and from CloudWatch Logs.
+and from CloudWatch Logs. (After Fluent Bit was set to read new log files from the start, CloudWatch
+also keeps the AI worker's lines from freshly launched burst nodes; confirmed on the third cycle.)
 
 ![VibeSense pipeline dashboard during a load test: throughput per stage](images/grafana-pipeline.png)
 

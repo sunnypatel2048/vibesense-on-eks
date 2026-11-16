@@ -99,7 +99,7 @@ metadata:
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip # straight to the pod IP (VPC CNI)
     alb.ingress.kubernetes.io/healthcheck-path: /_stcore/health
-    alb.ingress.kubernetes.io/inbound-cidrs: {{ required "ingress.allowedCidrs is required (Argo CD sets it, Task 6.3)" .Values.ingress.allowedCidrs | quote }}
+    alb.ingress.kubernetes.io/inbound-cidrs: {{ required "ingress.allowedCidrs is required (Argo CD sets it; see docs/adr/0016-gitops-bridge.md)" .Values.ingress.allowedCidrs | quote }}
 spec:
   ingressClassName: alb
   rules:

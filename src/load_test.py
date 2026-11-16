@@ -1,4 +1,4 @@
-"""Load generator for the autoscaling demo (Phase 8).
+"""Load generator for the autoscaling demo (make load, make drill).
 
 Creates synthetic monitoring jobs, with addresses at example.com, which the
 notification worker logs instead of emailing (SUPPRESS_EMAIL_DOMAINS). Then it

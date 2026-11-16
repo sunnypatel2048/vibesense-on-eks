@@ -1,4 +1,4 @@
-# VibeSense chart. Argo CD deploys it (deploy/apps/, Task 6.3); render it
+# VibeSense chart. Argo CD deploys it (deploy/apps/vibesense.yaml); render it
 # locally with:
 #   helm template vibesense deploy/charts/vibesense -n vibesense \
 #     --set registry=example.dkr.ecr.us-east-1.amazonaws.com \
@@ -6,7 +6,7 @@
 #     --set ingress.allowedCidrs=203.0.113.7/32
 
 # The ECR registry, <account>.dkr.ecr.us-east-1.amazonaws.com. Not set here on
-# purpose: Argo CD fills it in from the cluster's metadata (Task 6.3), so the
+# purpose: Argo CD fills it in from the cluster's metadata (docs/adr/0016-gitops-bridge.md), so the
 # AWS account ID never lands in git.
 registry: ""
 
@@ -18,7 +18,7 @@ awsRegion: us-east-1
 images:
   app:
     repository: vibesense-app
-    tag: 60f7b3cd6648 # the commit the image was built from; CI updates it (Phase 7)
+    tag: 60f7b3cd6648 # the commit the image was built from; CI updates it on every release
   ai:
     repository: vibesense-ai
     tag: 60f7b3cd6648
@@ -52,7 +52,7 @@ externalSecrets:
 # limit throttles a pod even when the node has idle CPU; memory can't be
 # shared that way, so it gets a hard cap. Sized from `kubectl top` during a demo
 # job (docs/measurements.md): requests a little above what was measured, limits
-# with room for a large video. Re-check under load with Prometheus (Phase 9).
+# with room for a large video. Re-check under load on the Grafana dashboard.
 workers:
   ingestion:
     image: app
@@ -106,7 +106,7 @@ workerDefaults:
 
 ui:
   # One replica on purpose: Streamlit keeps each session on one pod over a
-  # WebSocket (Task 6.2).
+  # WebSocket (README.md, "Why the UI runs one replica").
   replicas: 1
   port: 8501
   env:
@@ -120,7 +120,7 @@ ingress:
   enabled: true
   # Comma-separated CIDRs allowed to reach the ALB. Required: the UI creates
   # jobs that call the YouTube API and send email, so it isn't left open to the
-  # internet. Argo CD fills it in from the cluster's metadata (Task 6.3).
+  # internet. Argo CD fills it in from the cluster's metadata (docs/adr/0016-gitops-bridge.md).
   allowedCidrs: ""
 
 # Prometheus scraping of the workers' /metrics (templates/pod-monitor.yaml).
@@ -131,11 +131,11 @@ metrics:
 # Incoming traffic: deny by default, then allow the UI's port and Prometheus
 # scraping the workers (templates/network-policies.yaml). Kubelet health
 # probes come from the node's own IP, which the VPC CNI's policy agent allows;
-# the Task 6.5 test confirms pods stay Ready.
+# tested: pods stay Ready with the policies in place.
 networkPolicy:
   enabled: true
   prometheus:
-    namespace: monitoring # kube-prometheus-stack (Phase 9)
+    namespace: monitoring # kube-prometheus-stack (deploy/apps/monitoring.yaml)
 
 # KEDA scales each worker that has an `autoscaling` block on its queue's depth:
 # desired replicas = (visible + in-flight messages) / queueLength, between

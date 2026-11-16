@@ -1,4 +1,4 @@
-# Container logs of the vibesense namespace, shipped by Fluent Bit (Task 9.5,
+# Container logs of the vibesense namespace, shipped by Fluent Bit (
 # deploy/apps/fluent-bit.yaml). In the platform layer, so `make down` deletes
 # them with everything else.
 #

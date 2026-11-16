@@ -1,7 +1,7 @@
 provider "aws" {
   region = var.region
 
-  # Tagged at the provider so nothing is missed; scripts/leftovers.sh (Phase 10)
+  # Tagged at the provider so nothing is missed; scripts/leftovers.sh
   # finds anything still billing by the Project tag.
   default_tags {
     tags = {

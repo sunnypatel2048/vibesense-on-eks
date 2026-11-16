@@ -4,6 +4,9 @@ Everything `make up` creates and `make down` destroys: network, EKS, RDS, SQS,
 EventBridge Scheduler and per-workload IAM. It shares the bootstrap layer's
 state bucket under its own key, and looks up bootstrap resources by name.
 
+Normally driven by `make up` and `make down` from the repository root, which
+also handle the steps around Terraform (Argo CD, the teardown order). By hand:
+
 ```bash
 cd infra/platform
 terraform init -backend-config=../bootstrap/backend.hcl   # once per clone

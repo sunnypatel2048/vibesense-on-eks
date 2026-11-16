@@ -1,5 +1,5 @@
 # One queue + DLQ + alarm per pipeline stage. Visibility timeouts match the
-# local ElasticMQ config and each worker's health-check busy limit (Task 1.8).
+# local ElasticMQ config and each worker's health-check busy limit (src/common/worker.py).
 
 locals {
   queues = {

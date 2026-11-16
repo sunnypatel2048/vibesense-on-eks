@@ -1,7 +1,7 @@
 # One least-privilege IAM role per workload, via EKS Pod Identity (ADR 9).
 # A compromised pod can do only what its own role allows.
 # The Load Balancer Controller uses its project's published policy (below);
-# Karpenter's role comes with the Karpenter module in Task 8.3.
+# Karpenter's role comes with the Karpenter module (karpenter.tf).
 
 locals {
   queue_arn = { for stage, q in module.queue : stage => q.arn }
@@ -104,7 +104,7 @@ data "aws_iam_policy_document" "external_secrets" {
     actions = ["ssm:GetParameter", "ssm:GetParameters"]
     resources = [
       "${local.ssm_arn_prefix}/secrets/*",  # put there by `make secrets`
-      "${local.ssm_arn_prefix}/platform/*", # written by Terraform (Task 4.8)
+      "${local.ssm_arn_prefix}/platform/*", # written by Terraform (platform-config.tf)
     ]
   }
 
