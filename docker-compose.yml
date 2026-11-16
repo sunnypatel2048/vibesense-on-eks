@@ -28,7 +28,7 @@ x-env: &env
   DEMO_MODE: "true"
   LOG_FORMAT: console     # json is what EKS uses; console is easier to read here
 
-# Workers report health on :9000/healthz (Task 1.8).
+# Workers report health on :9000/healthz (src/common/worker.py).
 x-worker-health: &worker-health
   healthcheck:
     test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:9000/healthz', timeout=3)"]
@@ -55,7 +55,7 @@ x-after-migrations: &after-migrations
 services:
   # --- Infrastructure stand-ins ------------------------------------------------
   db:
-    image: postgres:16     # same major version as RDS (Task 4.4)
+    image: postgres:16     # same major version as RDS (infra/platform/rds.tf)
     environment:
       POSTGRES_DB: vibesense
       POSTGRES_USER: user
@@ -86,7 +86,7 @@ services:
       MP_SMTP_AUTH_ACCEPT_ANY: "1"
       MP_SMTP_AUTH_ALLOW_INSECURE: "1"
 
-  # --- One-shot: schema first, like the PreSync Job on EKS (Phase 6) ------------
+  # --- One-shot: schema first, like the migration Job on EKS (an Argo CD Sync hook) --
   migrate:
     <<: [*app-image, *read-only]
     command: ["alembic", "upgrade", "head"]
