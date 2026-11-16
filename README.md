@@ -18,7 +18,7 @@ Graviton Spot nodes, and one command tears it all down to zero cost.
 
 All numbers are measured, from [`docs/measurements.md`](docs/measurements.md).
 
-- **One command each way.** `make up` goes from nothing to a working URL in about 21 minutes; `make down` returns to zero in about 15 and proves it with a 16-point leftovers report. Two consecutive runs ended with nothing left.
+- **One command each way.** `make up` goes from nothing to a working URL in about 21 minutes; `make down` returns to zero in about 15 and proves it with a 16-point leftovers report. Three consecutive up/down cycles each ended with nothing left.
 - **Scale from zero.** A burst of 200 messages (10,000 comments) took the AI worker from 0 to 6 pods on newly launched Graviton Spot nodes and was fully processed in **202 s, with none lost and none doubled**. Pods were back at zero 159 s later; the extra nodes were gone after 315 s.
 - **GitOps with no credentials in CI.** Argo CD installs 12 applications in dependency order. A merged change reached new pods in **261 s** with no `kubectl`. CI authenticates with short-lived OIDC credentials, can push images and read state, and can never apply Terraform.
 - **Least privilege throughout.** One IAM role per workload through EKS Pod Identity, scoped to exact resources. No static AWS keys anywhere, and account-specific values (the account ID, the admin IP) are kept out of the code: Terraform hands them to Argo CD at runtime.
