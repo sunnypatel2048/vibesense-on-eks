@@ -7,6 +7,7 @@
 # Safe to rerun: each step converges (terraform apply, helm upgrade --install).
 set -euo pipefail
 source "$(dirname "$0")/lib.sh"
+log_to up
 
 step "Pre-flight checks"
 aws sts get-caller-identity >/dev/null || fail "No AWS credentials."
