@@ -18,7 +18,7 @@ Graviton Spot nodes, and one command tears it all down to zero cost.
 
 All numbers are measured, from [`docs/measurements.md`](docs/measurements.md).
 
-- **One command each way.** `make up` goes from nothing to a working URL in about 21 minutes; `make down` returns to zero in about 15 and proves it with a 16-point leftovers report. Three consecutive up/down cycles each ended with nothing left.
+- **One command each way.** `make up` goes from nothing to a working URL in about 21 minutes; `make down` returns to zero in about 15 and proves it with a 16-point leftovers report. Three consecutive up/down cycles each ended with nothing left; a teardown race found on the fourth is fixed and documented.
 - **Scale from zero.** A burst of 200 messages (10,000 comments) took the AI worker from 0 to 6 pods on newly launched Graviton Spot nodes and was fully processed in **202 s, with none lost and none doubled**. Pods were back at zero 159 s later; the extra nodes were gone after 315 s.
 - **GitOps with no credentials in CI.** Argo CD installs 12 applications in dependency order. A merged change reached new pods in **261 s** with no `kubectl`. CI authenticates with short-lived OIDC credentials, can push images and read state, and can never apply Terraform.
 - **Least privilege throughout.** One IAM role per workload through EKS Pod Identity, scoped to exact resources. No static AWS keys anywhere, and account-specific values (the account ID, the admin IP) are kept out of the code: Terraform hands them to Argo CD at runtime.
@@ -268,15 +268,16 @@ make ruleset
 | `make secrets` / `make secrets-check` | Writes / lists the app secrets in SSM |
 | `make ruleset` | Applies branch protection from `.github/rulesets/main.json` |
 
-`make down` runs six steps in an order that leaves nothing behind. Each one
+`make down` runs seven steps in an order that leaves nothing behind. Each one
 removes something the cluster created that Terraform can't see:
 
 1. Delete Argo CD's root app (without cascading), so self-heal stops recreating what's deleted next.
 2. Delete the app; wait for its Ingress, which the load balancer controller releases only after deleting the ALB.
 3. Delete the cluster config; Karpenter drains its nodes and removes the instance profile it created.
-4. `terraform destroy` the cluster first.
-5. Delete network interfaces the VPC CNI left behind, which would otherwise block deleting the subnets.
-6. `terraform destroy` the rest, then run the leftovers report.
+4. `terraform destroy` the node groups first.
+5. Delete network interfaces the VPC CNI left behind. Each one still holds the node security group and a subnet, which Terraform otherwise can't delete.
+6. `terraform destroy` the cluster.
+7. `terraform destroy` the rest, then run the leftovers report.
 
 ## Local development
 
