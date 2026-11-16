@@ -13,7 +13,7 @@ Re-measure when something here changes; keep the date.
 | `terraform destroy` | ~12 min | 2026-11-14: 12 m 14 s | |
 | Running cost while up | ~$0.19/hour | | Torn down after every session |
 
-![Argo CD root app with the platform add-ons](images/argocd-root-app.png)
+![Argo CD root app: all 12 apps Synced and Healthy after make up](images/argocd-root-app.png)
 
 ## Images and the AI service
 
@@ -70,7 +70,7 @@ pending pods as it sees them.
 | What | Result |
 | --- | --- |
 | `make up`: nothing → UI answering through the ALB | 20 m 53 s (Terraform 12 m 0 s; all 12 Argo CD apps healthy at 20 m 52 s) |
-| `make down`: everything → zero, with a clean leftovers report | 16 m 10 s; all 16 leftover checks `ok` |
+| `make down`: everything → zero, with a clean leftovers report | 16 m 10 s, then 14 m 07 s; all 16 leftover checks `ok` both times |
 | Network policy: another pod → a worker's port 9000 | Blocked; all pods stayed Ready |
 
 Load test (`make load JOBS=20 MESSAGES=200`), AI worker starting at 0 pods:
@@ -99,4 +99,4 @@ and from CloudWatch Logs.
 
 ![VibeSense pipeline dashboard during a load test: throughput per stage](images/grafana-pipeline.png)
 
-![Autoscaling and SLO rows: AI pods pending then ready, burst nodes, end-to-end latency](images/grafana-autoscaling-slo.png)
+![Autoscaling and SLO rows: queue depth jumps to 200, AI pods go pending while Karpenter adds a node, then ready as the queue drains](images/grafana-autoscaling-slo.png)
