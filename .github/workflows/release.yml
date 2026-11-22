@@ -54,7 +54,7 @@ jobs:
           mask-aws-account-id: true
           role-session-name: release-${{ github.run_id }}
 
-      - uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
+      - uses: aws-actions/amazon-ecr-login@7290e214a610b32bc0eef81748948b6d466a8783 # v2.2.0
         id: ecr
 
       # ECR tags are immutable, so a re-run for the same commit would fail on
